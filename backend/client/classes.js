@@ -6,23 +6,96 @@ class Sprite {
     frames = { max: 1, hold: 10 },
     sprites,
     animate = false,
-    rotation = 0
+    rotation = 0,
+    width,
+    height
   }) {
     this.position = position
-    this.image = new Image()
+    this.image = image ? new Image() : null
     this.frames = { ...frames, val: 0, elapsed: 0 }
-    this.image.onload = () => {
-      this.width = this.image.width / this.frames.max
-      this.height = this.image.height
-    }
-    this.image.src = image.src
     this.animate = animate
     this.sprites = sprites
     this.opacity = 1
     this.rotation = rotation
+    this.velocity = velocity
+    
+    // Chat functionality
+    this.chatMessage = null
+    this.chatTimer = null
+    
+    // Set dimensions if provided, otherwise calculate from image
+    this.width = width
+    this.height = height
+    
+    if (this.image && image) {
+      this.image.onload = () => {
+        if (!this.width) this.width = this.image.width / this.frames.max
+        if (!this.height) this.height = this.image.height
+      }
+      this.image.src = image.src
+    }
+  }
+
+  setChat(message) {
+    this.chatMessage = message
+    
+    // Clear existing timer
+    if (this.chatTimer) {
+      clearTimeout(this.chatTimer)
+    }
+    
+    // Set timer to clear message after 3 seconds
+    this.chatTimer = setTimeout(() => {
+      this.chatMessage = null
+      this.chatTimer = null
+    }, 3000)
+  }
+
+  drawChatBubble(c, bubbleX, bubbleY) {
+    if (!this.chatMessage) return
+    
+    const padding = 8
+    const maxWidth = 200
+    
+    c.font = '12px Arial'
+    const textWidth = Math.min(c.measureText(this.chatMessage).width, maxWidth)
+    const bubbleWidth = textWidth + padding * 2
+    const bubbleHeight = 20
+    
+    // Draw chat bubble background
+    c.fillStyle = 'rgba(255, 255, 255, 0.95)'
+    c.strokeStyle = 'black'
+    c.lineWidth = 2
+    
+    // Rounded rectangle for chat bubble
+    const radius = 5
+    c.beginPath()
+    c.moveTo(bubbleX - bubbleWidth / 2 + radius, bubbleY - bubbleHeight)
+    c.lineTo(bubbleX + bubbleWidth / 2 - radius, bubbleY - bubbleHeight)
+    c.quadraticCurveTo(bubbleX + bubbleWidth / 2, bubbleY - bubbleHeight, bubbleX + bubbleWidth / 2, bubbleY - bubbleHeight + radius)
+    c.lineTo(bubbleX + bubbleWidth / 2, bubbleY - radius)
+    c.quadraticCurveTo(bubbleX + bubbleWidth / 2, bubbleY, bubbleX + bubbleWidth / 2 - radius, bubbleY)
+    c.lineTo(bubbleX - bubbleWidth / 2 + radius, bubbleY)
+    c.quadraticCurveTo(bubbleX - bubbleWidth / 2, bubbleY, bubbleX - bubbleWidth / 2, bubbleY - radius)
+    c.lineTo(bubbleX - bubbleWidth / 2, bubbleY - bubbleHeight + radius)
+    c.quadraticCurveTo(bubbleX - bubbleWidth / 2, bubbleY - bubbleHeight, bubbleX - bubbleWidth / 2 + radius, bubbleY - bubbleHeight)
+    c.closePath()
+    
+    c.fill()
+    c.stroke()
+    
+    // Draw chat text
+    c.fillStyle = 'black'
+    c.font = '12px Arial'
+    c.textAlign = 'center'
+    c.fillText(this.chatMessage, bubbleX, bubbleY - 6, maxWidth)
   }
 
   draw() {
+    const c = document.querySelector('canvas').getContext('2d')
+    
+    if (!this.image || !this.image.complete) return
+    
     c.save()
     c.translate(
       this.position.x + this.width / 2,
@@ -67,6 +140,17 @@ class Sprite {
 
     c.restore()
 
+    // Draw chat bubble if exists
+    if (this.chatMessage) {
+      const bubbleX = this.position.x + this.width / 2
+      const bubbleY = this.position.y - 5
+      this.drawChatBubble(c, bubbleX, bubbleY)
+    }
+
+    this.updateAnimation()
+  }
+
+  updateAnimation() {
     if (!this.animate) return
 
     if (this.frames.max > 1) {
@@ -90,24 +174,29 @@ class Boundary {
   }
 
   draw() {
+    const c = document.querySelector('canvas').getContext('2d')
     c.fillStyle = 'rgba(255, 0, 0, 0.0)'
     c.fillRect(this.position.x, this.position.y, this.width, this.height)
   }
 }
 
-class OtherPlayer {
+class OtherPlayer extends Sprite {
   constructor({ position, playerId, playerName, direction = 'down' }) {
+    // Call parent constructor with specific parameters for player
+    super({
+      position,
+      frames: { max: 4, hold: 10 },
+      animate: false,
+      width: 48,
+      height: 68
+    })
+    
     this.playerId = playerId
     this.playerName = playerName
     this.worldPosition = { ...position } // Store world position
     this.renderPosition = { ...position } // Position for rendering (will be updated each frame)
-    this.width = 48
-    this.height = 68
     this.direction = direction
-    this.animate = false
     this.frames = { max: 4, current: 0, elapsed: 0, hold: 10 }
-    this.chatMessage = null
-    this.chatTimer = null
     
     // Load sprite images
     this.sprites = {
@@ -136,21 +225,6 @@ class OtherPlayer {
     }
     
     this.animate = animate
-  }
-  
-  setChat(message) {
-    this.chatMessage = message
-    
-    // Clear existing timer
-    if (this.chatTimer) {
-      clearTimeout(this.chatTimer)
-    }
-    
-    // Set timer to clear message after 3 seconds
-    this.chatTimer = setTimeout(() => {
-      this.chatMessage = null
-      this.chatTimer = null
-    }, 3000)
   }
   
   draw() {
@@ -210,45 +284,11 @@ class OtherPlayer {
     c.strokeText(this.playerName, this.renderPosition.x + this.width / 2, nameY)
     c.fillText(this.playerName, this.renderPosition.x + this.width / 2, nameY)
     
-    // Draw chat message if exists
+    // Draw chat message if exists (using inherited method)
     if (this.chatMessage) {
-      const bubbleY = nameY - 25
       const bubbleX = this.renderPosition.x + this.width / 2
-      const padding = 8
-      const maxWidth = 200
-      
-      c.font = '12px Arial'
-      const textWidth = Math.min(c.measureText(this.chatMessage).width, maxWidth)
-      const bubbleWidth = textWidth + padding * 2
-      const bubbleHeight = 20
-      
-      // Draw chat bubble background
-      c.fillStyle = 'rgba(255, 255, 255, 0.95)'
-      c.strokeStyle = 'black'
-      c.lineWidth = 2
-      
-      // Rounded rectangle for chat bubble
-      const radius = 5
-      c.beginPath()
-      c.moveTo(bubbleX - bubbleWidth / 2 + radius, bubbleY - bubbleHeight)
-      c.lineTo(bubbleX + bubbleWidth / 2 - radius, bubbleY - bubbleHeight)
-      c.quadraticCurveTo(bubbleX + bubbleWidth / 2, bubbleY - bubbleHeight, bubbleX + bubbleWidth / 2, bubbleY - bubbleHeight + radius)
-      c.lineTo(bubbleX + bubbleWidth / 2, bubbleY - radius)
-      c.quadraticCurveTo(bubbleX + bubbleWidth / 2, bubbleY, bubbleX + bubbleWidth / 2 - radius, bubbleY)
-      c.lineTo(bubbleX - bubbleWidth / 2 + radius, bubbleY)
-      c.quadraticCurveTo(bubbleX - bubbleWidth / 2, bubbleY, bubbleX - bubbleWidth / 2, bubbleY - radius)
-      c.lineTo(bubbleX - bubbleWidth / 2, bubbleY - bubbleHeight + radius)
-      c.quadraticCurveTo(bubbleX - bubbleWidth / 2, bubbleY - bubbleHeight, bubbleX - bubbleWidth / 2 + radius, bubbleY - bubbleHeight)
-      c.closePath()
-      
-      c.fill()
-      c.stroke()
-      
-      // Draw chat text
-      c.fillStyle = 'black'
-      c.font = '12px Arial'
-      c.textAlign = 'center'
-      c.fillText(this.chatMessage, bubbleX, bubbleY - 6, maxWidth)
+      const bubbleY = nameY - 25
+      this.drawChatBubble(c, bubbleX, bubbleY)
     }
   }
 }

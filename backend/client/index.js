@@ -412,9 +412,8 @@ socket.on('chatMessage', (data) => {
   console.log('Chat message:', data)
   
   if (data.playerId === socket.id) {
-    // Show our own message above our player (we don't have OtherPlayer for ourselves)
-    // For now, just log it. In a more complete implementation, we'd show it above our sprite too
-    console.log('My message:', data.message)
+    // Show our own message above our player
+    player.setChat(data.message)
   } else {
     // Show message above other player
     const otherPlayer = gameState.otherPlayers[data.playerId]
