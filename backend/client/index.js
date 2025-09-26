@@ -1,143 +1,184 @@
-// Get canvas and context
+const CANVAS_WIDTH = 1024
+const CANVAS_HEIGHT = 576
+const MOVEMENT_SPEED = 3
+const MOVEMENT_SYNC_INTERVAL = 100
+const SPRITE_FRAME_HOLD = 10
+const COLLISION_MAP_WIDTH = 70
+const keyMap = {
+  ArrowUp: 'ArrowUp',
+  ArrowDown: 'ArrowDown',
+  ArrowLeft: 'ArrowLeft',
+  ArrowRight: 'ArrowRight'
+}
 const canvas = document.querySelector('canvas')
 const c = canvas.getContext('2d')
 
-canvas.width = 1024
-canvas.height = 576
+canvas.width = CANVAS_WIDTH
+canvas.height = CANVAS_HEIGHT
 
-// Socket.io connection
 const socket = io()
 
-// Game state
-let gameState = {
+const gameState = {
   contractAddress: null,
   myPlayerId: null,
   myPlayerName: null,
-  otherPlayers: {},
+  otherPlayers: new Map(),
   connected: false,
-  chatting: false
+  chatting: false,
+  lastMovementTime: 0,
+  lastKey: '',
+  moving: false
 }
 
-// Get contract address from URL
+const domElements = {
+  playerInfo: document.getElementById('playerInfo'),
+  roomInfo: document.getElementById('roomInfo'),
+  playersCount: document.getElementById('playersCount'),
+  connectionStatus: document.getElementById('connectionStatus'),
+  chatInput: document.getElementById('chatInput')
+}
+
 function getContractAddress() {
   const path = window.location.pathname
   console.log('🌐 Current URL path:', path)
-  const match = path.match(/\/game\/(.+?)(?:\/|$)/) // Fixed regex to handle trailing slash
-  let address = match ? match[1] : null
 
-  // Remove any trailing slash if present
-  if (address && address.endsWith('/')) {
-    address = address.slice(0, -1)
-  }
+  const match = path.match(/\/game\/([^\/]+)/)
+  const address = match?.[1]
 
   console.log('📍 Extracted contract address:', address)
   return address
 }
 
-// Update UI elements
+let uiUpdateScheduled = false
 function updateUI() {
-  document.getElementById('playerInfo').textContent = `Player: ${
-    gameState.myPlayerName || 'Loading...'
-  }`
-  document.getElementById(
-    'roomInfo'
-  ).textContent = `Room: ${gameState.contractAddress?.slice(0, 10)}...`
-  document.getElementById('playersCount').textContent = `Players: ${
-    Object.keys(gameState.otherPlayers).length + 1
-  }`
+  if (uiUpdateScheduled) return
 
-  const statusEl = document.getElementById('connectionStatus')
-  if (gameState.connected) {
-    statusEl.textContent = 'Connected'
-    statusEl.className = 'connected'
-  } else {
-    statusEl.textContent = 'Disconnected'
-    statusEl.className = 'disconnected'
-  }
-}
+  uiUpdateScheduled = true
+  requestAnimationFrame(() => {
+    const { myPlayerName, contractAddress, connected } = gameState
+    const playerCount = gameState.otherPlayers.size + 1
 
-// Collision detection
-const collisionsMap = []
-for (let i = 0; i < collisions.length; i += 70) {
-  collisionsMap.push(collisions.slice(i, 70 + i))
-}
+    domElements.playerInfo.textContent = `Player: ${
+      myPlayerName || 'Loading...'
+    }`
+    domElements.roomInfo.textContent = `Room: ${contractAddress?.slice(
+      0,
+      10
+    )}...`
+    domElements.playersCount.textContent = `Players: ${playerCount}`
 
-const boundaries = []
-const offset = {
-  x: -735,
-  y: -650
-}
+    const statusEl = domElements.connectionStatus
+    if (connected) {
+      statusEl.textContent = 'Connected'
+      statusEl.className = 'connected'
+    } else {
+      statusEl.textContent = 'Disconnected'
+      statusEl.className = 'disconnected'
+    }
 
-collisionsMap.forEach((row, i) => {
-  row.forEach((symbol, j) => {
-    if (symbol === 1025)
-      boundaries.push(
-        new Boundary({
-          position: {
-            x: j * Boundary.width + offset.x,
-            y: i * Boundary.height + offset.y
-          }
-        })
-      )
+    uiUpdateScheduled = false
   })
-})
+}
 
-// Load images
-const image = new Image()
-image.src = './img/Pellet Town.png'
-
-const foregroundImage = new Image()
-foregroundImage.src = './img/foregroundObjects.png'
-
-const playerDownImage = new Image()
-playerDownImage.src = './img/playerDown.png'
-
-const playerUpImage = new Image()
-playerUpImage.src = './img/playerUp.png'
-
-const playerLeftImage = new Image()
-playerLeftImage.src = './img/playerLeft.png'
-
-const playerRightImage = new Image()
-playerRightImage.src = './img/playerRight.png'
-
-// Create main player
-const player = new Sprite({
-  position: {
-    x: canvas.width / 2 - 192 / 4 / 2,
-    y: canvas.height / 2 - 68 / 2
-  },
-  image: playerDownImage,
-  frames: {
-    max: 4,
-    hold: 10
-  },
-  sprites: {
-    up: playerUpImage,
-    left: playerLeftImage,
-    right: playerRightImage,
-    down: playerDownImage
+function createCollisionMap() {
+  const collisionsMap = []
+  for (let i = 0; i < collisions.length; i += COLLISION_MAP_WIDTH) {
+    collisionsMap.push(collisions.slice(i, COLLISION_MAP_WIDTH + i))
   }
-})
+  return collisionsMap
+}
 
-// Create background and foreground
-const background = new Sprite({
-  position: {
-    x: offset.x,
-    y: offset.y
-  },
-  image: image
-})
+function createBoundaries() {
+  const collisionsMap = createCollisionMap()
+  const boundaries = []
+  const offset = { x: -735, y: -650 }
 
-const foreground = new Sprite({
-  position: {
-    x: offset.x,
-    y: offset.y
-  },
-  image: foregroundImage
-})
+  collisionsMap.forEach((row, i) => {
+    row.forEach((symbol, j) => {
+      if (symbol === 1025) {
+        boundaries.push(
+          new Boundary({
+            position: {
+              x: j * Boundary.width + offset.x,
+              y: i * Boundary.height + offset.y
+            }
+          })
+        )
+      }
+    })
+  })
 
-// Key handling - CHANGED TO ARROW KEYS
+  return { boundaries, offset }
+}
+
+const { boundaries, offset } = createBoundaries()
+
+async function loadImages() {
+  const imageUrls = {
+    background: './img/Pellet Town.png',
+    foreground: './img/foregroundObjects.png',
+    playerDown: './img/playerDown.png',
+    playerUp: './img/playerUp.png',
+    playerLeft: './img/playerLeft.png',
+    playerRight: './img/playerRight.png'
+  }
+
+  const imagePromises = Object.entries(imageUrls).map(([key, src]) => {
+    return new Promise((resolve, reject) => {
+      const img = new Image()
+      img.onload = () => resolve([key, img])
+      img.onerror = reject
+      img.src = src
+    })
+  })
+
+  const loadedImages = await Promise.all(imagePromises)
+  return Object.fromEntries(loadedImages)
+}
+
+let player, background, foreground, movables, images
+
+async function initializeGame() {
+  try {
+    images = await loadImages()
+
+    player = new Sprite({
+      position: {
+        x: CANVAS_WIDTH / 2 - 192 / 4 / 2,
+        y: CANVAS_HEIGHT / 2 - 68 / 2
+      },
+      image: images.playerDown,
+      frames: {
+        max: 4,
+        hold: SPRITE_FRAME_HOLD
+      },
+      sprites: {
+        up: images.playerUp,
+        left: images.playerLeft,
+        right: images.playerRight,
+        down: images.playerDown
+      }
+    })
+
+    background = new Sprite({
+      position: { x: offset.x, y: offset.y },
+      image: images.background
+    })
+
+    foreground = new Sprite({
+      position: { x: offset.x, y: offset.y },
+      image: images.foreground
+    })
+
+    movables = [background, ...boundaries, foreground]
+
+    animate()
+    console.log('Multiplayer Pokemon game initialized!')
+  } catch (error) {
+    console.error('Failed to load game images:', error)
+  }
+}
+
 const keys = {
   ArrowUp: { pressed: false },
   ArrowDown: { pressed: false },
@@ -145,220 +186,152 @@ const keys = {
   ArrowRight: { pressed: false }
 }
 
-const movables = [background, ...boundaries, foreground]
-
-let lastKey = ''
-let lastMovementTime = 0
-const MOVEMENT_SYNC_INTERVAL = 100 // Send position every 100ms
-
-// Calculate player's world position based on background offset
 function getPlayerWorldPosition() {
-  // The player stays centered on screen, but the world moves
-  // So the player's world position is the inverse of the background movement
   return {
-    x: canvas.width / 2 - 192 / 4 / 2 - background.position.x,
-    y: canvas.height / 2 - 68 / 2 - background.position.y
+    x: CANVAS_WIDTH / 2 - 192 / 4 / 2 - background.position.x,
+    y: CANVAS_HEIGHT / 2 - 68 / 2 - background.position.y
   }
 }
 
-// Movement function
+function checkCollision(direction) {
+  let offsetX = 0,
+    offsetY = 0
+
+  switch (direction) {
+    case 'ArrowUp':
+      offsetY = MOVEMENT_SPEED
+      break
+    case 'ArrowDown':
+      offsetY = -MOVEMENT_SPEED
+      break
+    case 'ArrowLeft':
+      offsetX = MOVEMENT_SPEED
+      break
+    case 'ArrowRight':
+      offsetX = -MOVEMENT_SPEED
+      break
+  }
+
+  for (const boundary of boundaries) {
+    if (
+      rectangularCollision({
+        rectangle1: player,
+        rectangle2: {
+          ...boundary,
+          position: {
+            x: boundary.position.x + offsetX,
+            y: boundary.position.y + offsetY
+          }
+        }
+      })
+    ) {
+      return true
+    }
+  }
+  return false
+}
+
 function handleMovement() {
-  let moving = true
-  player.animate = false
-  let moved = false
 
-  if (keys.ArrowUp.pressed && lastKey === 'ArrowUp') {
-    player.animate = true
-    player.image = player.sprites.up
-
-    for (let i = 0; i < boundaries.length; i++) {
-      const boundary = boundaries[i]
-      if (
-        rectangularCollision({
-          rectangle1: player,
-          rectangle2: {
-            ...boundary,
-            position: {
-              x: boundary.position.x,
-              y: boundary.position.y + 3
-            }
-          }
-        })
-      ) {
-        moving = false
-        break
-      }
-    }
-
-    if (moving) {
-      movables.forEach((movable) => {
-        movable.position.y += 3
-      })
-      moved = true
-    }
-  } else if (keys.ArrowLeft.pressed && lastKey === 'ArrowLeft') {
-    player.animate = true
-    player.image = player.sprites.left
-
-    for (let i = 0; i < boundaries.length; i++) {
-      const boundary = boundaries[i]
-      if (
-        rectangularCollision({
-          rectangle1: player,
-          rectangle2: {
-            ...boundary,
-            position: {
-              x: boundary.position.x + 3,
-              y: boundary.position.y
-            }
-          }
-        })
-      ) {
-        moving = false
-        break
-      }
-    }
-
-    if (moving) {
-      movables.forEach((movable) => {
-        movable.position.x += 3
-      })
-      moved = true
-    }
-  } else if (keys.ArrowDown.pressed && lastKey === 'ArrowDown') {
-    player.animate = true
-    player.image = player.sprites.down
-
-    for (let i = 0; i < boundaries.length; i++) {
-      const boundary = boundaries[i]
-      if (
-        rectangularCollision({
-          rectangle1: player,
-          rectangle2: {
-            ...boundary,
-            position: {
-              x: boundary.position.x,
-              y: boundary.position.y - 3
-            }
-          }
-        })
-      ) {
-        moving = false
-        break
-      }
-    }
-
-    if (moving) {
-      movables.forEach((movable) => {
-        movable.position.y -= 3
-      })
-      moved = true
-    }
-  } else if (keys.ArrowRight.pressed && lastKey === 'ArrowRight') {
-    player.animate = true
-    player.image = player.sprites.right
-
-    for (let i = 0; i < boundaries.length; i++) {
-      const boundary = boundaries[i]
-      if (
-        rectangularCollision({
-          rectangle1: player,
-          rectangle2: {
-            ...boundary,
-            position: {
-              x: boundary.position.x - 3,
-              y: boundary.position.y
-            }
-          }
-        })
-      ) {
-        moving = false
-        break
-      }
-    }
-
-    if (moving) {
-      movables.forEach((movable) => {
-        movable.position.x -= 3
-      })
-      moved = true
-    }
+  const direction = gameState.lastKey
+  if (!keys[direction]?.pressed) {
+    player.animate = false
+    return
   }
 
-  // Send position update to server if moved
-  if (moved && gameState.connected) {
-    const now = Date.now()
-    if (now - lastMovementTime > MOVEMENT_SYNC_INTERVAL) {
-      const direction = lastKey.replace('Arrow', '').toLowerCase()
-      const worldPos = getPlayerWorldPosition()
-      socket.emit('playerMove', {
-        contractAddress: gameState.contractAddress,
-        position: worldPos, // Send world position
-        direction: direction,
-        animate: player.animate
-      })
-      lastMovementTime = now
-    }
+  if (checkCollision(direction)) {
+    player.animate = false
+    return
   }
+
+  player.animate = true
+  gameState.moving = true
+
+  switch (direction) {
+    case 'ArrowUp':
+      player.image = player.sprites.up
+      movables.forEach((movable) => (movable.position.y += MOVEMENT_SPEED))
+      break
+    case 'ArrowDown':
+      player.image = player.sprites.down
+      movables.forEach((movable) => (movable.position.y -= MOVEMENT_SPEED))
+      break
+    case 'ArrowLeft':
+      player.image = player.sprites.left
+      movables.forEach((movable) => (movable.position.x += MOVEMENT_SPEED))
+      break
+    case 'ArrowRight':
+      player.image = player.sprites.right
+      movables.forEach((movable) => (movable.position.x -= MOVEMENT_SPEED))
+      break
+  }
+
+  syncPlayerPosition()
 }
 
-// Main animation loop
+function syncPlayerPosition() {
+  if (!gameState.connected || !gameState.moving) return
+
+  const now = Date.now()
+  if (now - gameState.lastMovementTime <= MOVEMENT_SYNC_INTERVAL) return
+
+  const direction = gameState.lastKey.replace('Arrow', '').toLowerCase()
+  const worldPos = getPlayerWorldPosition()
+
+  socket.emit('playerMove', {
+    contractAddress: gameState.contractAddress,
+    position: worldPos,
+    direction: direction,
+    animate: player.animate
+  })
+
+  gameState.lastMovementTime = now
+  gameState.moving = false
+}
+
+let animationId
 function animate() {
-  window.requestAnimationFrame(animate)
+  animationId = requestAnimationFrame(animate)
 
-  // Clear canvas
-  c.clearRect(0, 0, canvas.width, canvas.height)
+  c.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT)
 
-  // Draw background
   background.draw()
 
-  // Draw boundaries (for debugging - usually invisible)
-  // boundaries.forEach(boundary => boundary.draw())
-
-  // Draw other players with proper positioning
-  Object.values(gameState.otherPlayers).forEach((otherPlayer) => {
-    // Update the render position based on their world position and current camera offset
+  for (const otherPlayer of gameState.otherPlayers.values()) {
     otherPlayer.renderPosition = {
       x: otherPlayer.worldPosition.x + background.position.x,
       y: otherPlayer.worldPosition.y + background.position.y
     }
     otherPlayer.draw()
-  })
+  }
 
-  // Draw main player
   player.draw()
 
-  // Draw foreground
   foreground.draw()
 
-  // Handle movement
-  if (!gameState.chatting) {
-    handleMovement()
-  }
+  handleMovement()
 }
 
-// Socket event handlers
 socket.on('connect', () => {
   console.log('Connected to server')
   gameState.connected = true
   gameState.contractAddress = getContractAddress()
 
   if (gameState.contractAddress) {
-    // Join the game
     socket.emit('joinGame', {
       contractAddress: gameState.contractAddress,
-      playerName: null // Server will generate random name
+      playerName: null
     })
   } else {
     console.error('No contract address in URL')
   }
-
   updateUI()
 })
 
 socket.on('disconnect', () => {
   console.log('Disconnected from server')
   gameState.connected = false
+  gameState.otherPlayers.clear()
   updateUI()
 })
 
@@ -366,21 +339,21 @@ socket.on('gameState', (data) => {
   console.log('Received game state:', data)
   gameState.myPlayerId = socket.id
 
-  // Find our player name
   if (data.players[socket.id]) {
     gameState.myPlayerName = data.players[socket.id].name
   }
 
-  // Create other players
-  Object.keys(data.players).forEach((playerId) => {
+  gameState.otherPlayers.clear()
+  Object.entries(data.players).forEach(([playerId, playerData]) => {
     if (playerId !== socket.id) {
-      const playerData = data.players[playerId]
-      gameState.otherPlayers[playerId] = new OtherPlayer({
-        position: playerData.position, // This is world position
+      const otherPlayer = new OtherPlayer({
+        position: playerData.position,
         playerId: playerId,
         playerName: playerData.name,
         direction: playerData.direction || 'down'
       })
+      otherPlayer.worldPosition = playerData.position
+      gameState.otherPlayers.set(playerId, otherPlayer)
     }
   })
 
@@ -389,19 +362,16 @@ socket.on('gameState', (data) => {
 
 socket.on('playerJoined', (data) => {
   console.log('🎉 Player joined:', data.player.name)
-  console.log('👤 Player data:', data)
 
   if (data.playerId !== socket.id) {
-    gameState.otherPlayers[data.playerId] = new OtherPlayer({
-      position: data.player.position, 
+    const otherPlayer = new OtherPlayer({
+      position: data.player.position,
       playerId: data.playerId,
       playerName: data.player.name,
       direction: data.player.direction || 'down'
     })
-    console.log(
-      '✅ Added to otherPlayers. Total other players:',
-      Object.keys(gameState.otherPlayers).length
-    )
+    otherPlayer.worldPosition = data.player.position
+    gameState.otherPlayers.set(data.playerId, otherPlayer)
   }
 
   updateUI()
@@ -409,135 +379,68 @@ socket.on('playerJoined', (data) => {
 
 socket.on('playerLeft', (playerId) => {
   console.log('Player left:', playerId)
-  delete gameState.otherPlayers[playerId]
+  gameState.otherPlayers.delete(playerId)
   updateUI()
 })
 
 socket.on('playerUpdate', (data) => {
-  const otherPlayer = gameState.otherPlayers[data.playerId]
+  const otherPlayer = gameState.otherPlayers.get(data.playerId)
   if (otherPlayer) {
-    // Update world position
+    otherPlayer.worldPosition = data.position
     otherPlayer.update({
-      position: data.position, // This is world position from server
+      position: data.position,
       direction: data.direction,
       animate: data.animate
     })
   }
 })
 
-// Socket message handler
 socket.on('chatMessage', (data) => {
   console.log('Chat message:', data)
 
   if (data.playerId === socket.id) {
-    // Show our own message above our player
     player.setChat(data.message)
   } else {
-    // Show message above other player
-    const otherPlayer = gameState.otherPlayers[data.playerId]
+    const otherPlayer = gameState.otherPlayers.get(data.playerId)
     if (otherPlayer) {
       otherPlayer.setChat(data.message)
     }
   }
 })
 
-// Chat system
-const chatInput = document.getElementById('chatInput')
-
-function openChat() {
-  gameState.chatting = true
-  chatInput.style.display = 'block'
-  chatInput.focus()
-}
-
-function closeChat() {
-  gameState.chatting = false
-  chatInput.style.display = 'none'
-  chatInput.value = ''
-}
+domElements.chatInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault()
+    sendChat()
+  }
+})
 
 function sendChat() {
-  const message = chatInput.value.trim()
+  const message = domElements.chatInput.value.trim()
   if (message && gameState.connected) {
     socket.emit('chatMessage', {
       contractAddress: gameState.contractAddress,
       message: message
     })
   }
-  closeChat() // always close after send
+  domElements.chatInput.value = ''
 }
 
-// Keyboard event handlers
 window.addEventListener('keydown', (e) => {
-  // Open chat if Enter pressed and not chatting
-  if (e.key === 'Enter' && !gameState.chatting) {
-    e.preventDefault()
-    openChat()
-    return
-  }
 
-  // If we're chatting
-  if (gameState.chatting) {
-    if (e.key === 'Enter') {
-      e.preventDefault()
-      sendChat() // send + close inside
-    } else if (e.key === 'Escape') {
-      e.preventDefault()
-      closeChat()
-    }
-    return // stop movement when chatting
-  }
-
-  // Handle movement only when not chatting
-  switch (e.key) {
-    case 'ArrowUp':
-      keys.ArrowUp.pressed = true
-      lastKey = 'ArrowUp'
-      break
-    case 'ArrowLeft':
-      keys.ArrowLeft.pressed = true
-      lastKey = 'ArrowLeft'
-      break
-    case 'ArrowDown':
-      keys.ArrowDown.pressed = true
-      lastKey = 'ArrowDown'
-      break
-    case 'ArrowRight':
-      keys.ArrowRight.pressed = true
-      lastKey = 'ArrowRight'
-      break
+  const key = keyMap[e.key]
+  if (key) {
+    keys[key].pressed = true
+    gameState.lastKey = key
   }
 })
 
 window.addEventListener('keyup', (e) => {
-  // Only handle movement keys when not chatting
-  if (!gameState.chatting) {
-    switch (e.key) {
-      case 'ArrowUp':
-        keys.ArrowUp.pressed = false
-        break
-      case 'ArrowLeft':
-        keys.ArrowLeft.pressed = false
-        break
-      case 'ArrowDown':
-        keys.ArrowDown.pressed = false
-        break
-      case 'ArrowRight':
-        keys.ArrowRight.pressed = false
-        break
-    }
+
+  const key = keyMap[e.key]
+  if (key) {
+    keys[key].pressed = false
   }
 })
 
-// Audio handling
-let clicked = false
-addEventListener('click', () => {
-  if (!clicked && typeof audio !== 'undefined' && audio.Map) {
-    audio.Map.play()
-    clicked = true
-  }
-})
-
-// Start the game
-animate()
-console.log('Multiplayer Pokemon game initialized!')
+initializeGame()
