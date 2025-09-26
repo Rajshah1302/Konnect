@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Multiplayer Pokemon Game</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap"
+    rel="stylesheet"
+  />
+  
+  <style>
+    * {
+      font-family: 'Press Start 2P', cursive;
+      box-sizing: border-box;
+    }
+
+    body {
+      background-color: black;
+      margin: 0;
+      padding: 20px;
+      overflow: hidden;
+    }
+
+    h1 {
+      margin: 0;
+      color: white;
+      font-size: 16px;
+      margin-bottom: 10px;
+    }
+
+    button {
+      border: 0;
+      cursor: pointer;
+      font-size: 12px;
+      padding: 8px 16px;
+      background-color: #fff;
+      color: #000;
+    }
+
+    button:hover {
+      background-color: #ddd;
+    }
+
+    #gameContainer {
+      display: inline-block;
+      position: relative;
+      border: 2px solid #fff;
+    }
+
+    canvas {
+      display: block;
+      background-color: #000;
+    }
+
+    #gameInfo {
+      color: white;
+      font-size: 10px;
+      margin-bottom: 10px;
+      display: flex;
+      gap: 20px;
+    }
+
+    #chatInput {
+      position: absolute;
+      bottom: 10px;
+      left: 10px;
+      right: 10px;
+      background: rgba(0, 0, 0, 0.8);
+      border: 2px solid #fff;
+      color: white;
+      padding: 8px;
+      font-family: 'Press Start 2P', cursive;
+      font-size: 10px;
+      display: none;
+    }
+
+    #chatInput:focus {
+      outline: none;
+      border-color: #ff0;
+    }
+
+    #controls {
+      color: white;
+      font-size: 8px;
+      margin-top: 10px;
+      line-height: 1.5;
+    }
+
+    #connectionStatus {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      color: white;
+      font-size: 8px;
+      padding: 4px 8px;
+      background: rgba(0, 0, 0, 0.7);
+      border: 1px solid;
+    }
+
+    .connected { border-color: #0f0; color: #0f0; }
+    .disconnected { border-color: #f00; color: #f00; }
+    .connecting { border-color: #ff0; color: #ff0; }
+  </style>
+</head>
+<body>
+  <h1>🎮 Multiplayer Pokemon Game</h1>
+  
+  <div id="gameInfo">
+    <span id="playerInfo">Player: Loading...</span>
+    <span id="roomInfo">Room: Loading...</span>
+    <span id="playersCount">Players: 0</span>
+  </div>
+
+  <div id="gameContainer">
+    <canvas></canvas>
+    <input type="text" id="chatInput" placeholder="Type message and press Enter..." maxlength="100">
+    <div id="connectionStatus" class="connecting">Connecting...</div>
+  </div>
+
+  <div id="controls">
+    <div>🎮 Controls:</div>
+    <div>Arrow Keys - Move</div>
+    <div>Enter - Open Chat</div>
+    <div>Esc - Close Chat</div>
+  </div>
+
+  <!-- External Libraries -->
+  <script
+    src="https://cdnjs.cloudflare.com/ajax/libs/howler/2.2.3/howler.min.js"
+    integrity="sha512-6+YN/9o9BWrk6wSfGxQGpt3EUK6XeHi6yeHV+TYD2GR0Sj/cggRpXr1BrAQf0as6XslxomMUxXp2vIl+fv0QRA=="
+    crossorigin="anonymous"
+    referrerpolicy="no-referrer"
+  ></script>
+  <script
+    src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.9.1/gsap.min.js"
+    integrity="sha512-H6cPm97FAsgIKmlBA4s774vqoN24V5gSQL4yBTDOY2su2DeXZVhQPxFK4P6GPdnZqM9fg1G3cMv5wD7e6cFLZQ=="
+    crossorigin="anonymous"
+    referrerpolicy="no-referrer"
+  ></script>
+  
+  <!-- Socket.io Client -->
+  <script src="/socket.io/socket.io.js"></script>
+  
+  <!-- Game Scripts -->
+  <script src="/data/collisions.js"></script>
+  <script src="/js/utils.js"></script>
+  <script src="/classes.js"></script>
+  <script src="/index.js"></script>
+</body>
+</html>
