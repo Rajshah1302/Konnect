@@ -19,6 +19,7 @@ canvas.height = CANVAS_HEIGHT
 const socket = io()
 
 const gameState = {
+  paused: false,
   contractAddress: null,
   myPlayerId: null,
   myPlayerName: null,
@@ -30,12 +31,32 @@ const gameState = {
   moving: false
 }
 
+const battle = {
+  intiated: false
+}
+
 const domElements = {
   playerInfo: document.getElementById('playerInfo'),
   roomInfo: document.getElementById('roomInfo'),
   playersCount: document.getElementById('playersCount'),
   connectionStatus: document.getElementById('connectionStatus'),
   chatInput: document.getElementById('chatInput')
+}
+
+function getNearbyPlayers(radius = 50) {
+  const me = getPlayerWorldPosition()
+  const nearby = []
+
+  for (const [id, other] of gameState.otherPlayers.entries()) {
+    const dx = me.x - other.worldPosition.x
+    const dy = me.y - other.worldPosition.y
+    const dist = Math.sqrt(dx * dx + dy * dy)
+
+    if (dist <= radius) {
+      nearby.push({ id, name: other.playerName })
+    }
+  }
+  return nearby
 }
 
 function getContractAddress() {
@@ -56,6 +77,7 @@ function updateUI() {
   uiUpdateScheduled = true
   requestAnimationFrame(() => {
     const { myPlayerName, contractAddress, connected } = gameState
+    player.name = myPlayerName
     const playerCount = gameState.otherPlayers.size + 1
 
     domElements.playerInfo.textContent = `Player: ${
@@ -91,7 +113,7 @@ function createCollisionMap() {
 function createBoundaries() {
   const collisionsMap = createCollisionMap()
   const boundaries = []
-  const offset = { x: -735, y: -650 }
+  const offset = { x: -735, y: -610 }
 
   collisionsMap.forEach((row, i) => {
     row.forEach((symbol, j) => {
@@ -232,7 +254,6 @@ function checkCollision(direction) {
 }
 
 function handleMovement() {
-
   const direction = gameState.lastKey
   if (!keys[direction]?.pressed) {
     player.animate = false
@@ -291,8 +312,8 @@ function syncPlayerPosition() {
 
 let animationId
 function animate() {
+  if (gameState.paused) return
   animationId = requestAnimationFrame(animate)
-
   c.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT)
 
   background.draw()
@@ -309,7 +330,101 @@ function animate() {
 
   foreground.draw()
 
+  if (battle.intiated) {
+    const btn = document.getElementById('challengeBtn')
+    btn.style.display = 'none'
+    return
+  }
+
   handleMovement()
+  const nearby = getNearbyPlayers()
+  const btn = document.getElementById('challengeBtn')
+
+  if (nearby.length > 0) {
+    btn.style.display = 'block'
+    btn.onclick = () => {
+      socket.emit('challengePlayer', {
+        contractAddress: gameState.contractAddress,
+        targetId: nearby[0].id
+      })
+    }
+  } else {
+    btn.style.display = 'none'
+  }
+}
+
+socket.on('challenged', ({ fromId, name }) => {
+  gameState.paused = true
+  const popup = document.getElementById('challengePopup')
+  document.getElementById(
+    'challengeText'
+  ).innerText = `${name} has challenged you!`
+  popup.style.display = 'block'
+
+  try {
+    document.getElementById('acceptBtn').onclick = () => {
+      socket.emit('challengeResponse', {
+        contractAddress: gameState.contractAddress,
+        to: fromId,
+        accepted: true
+      })
+      popup.style.display = 'none'
+      battle.intiated = true
+    }
+
+    document.getElementById('declineBtn').onclick = () => {
+      socket.emit('challengeResponse', {
+        contractAddress: gameState.contractAddress,
+        to: fromId,
+        accepted: false
+      })
+
+      popup.style.display = 'none'
+
+      // Reset back to overworld mode
+      gameState.paused = false
+      battle.initiated = false // 🔑 ensure no “battle mode” flag lingers
+      if (!animationId) {
+        animate() // 🔑 restart main loop if you stopped it earlier
+      }
+    }
+  } finally {
+    gameState.paused = false
+  }
+})
+
+socket.on('battleStart', ({ room, players }) => {
+  console.log('⚔️ Entering battle:', room, players)
+  const btn = document.getElementById('challengeBtn')
+  btn.style.display = 'none'
+  battle.intiated = true
+  // Stop overworld loop
+  cancelAnimationFrame(animationId)
+
+  // Transition effect
+  document.body.style.transition = 'background 1s'
+  document.body.style.background = 'black'
+
+  setTimeout(() => {
+    startBattleScene(players)
+  }, 1000)
+})
+
+function startBattleScene(players) {
+  const canvas = document.querySelector('canvas')
+  const ctx = canvas.getContext('2d')
+
+  // Clear screen
+  ctx.clearRect(0, 0, canvas.width, canvas.height)
+
+  // Example: draw battle UI
+  ctx.fillStyle = 'white'
+  ctx.font = '20px Arial'
+  ctx.fillText('⚔️ Battle Start!', 50, 50)
+  ctx.fillText('Player 1: ' + players[0], 50, 100)
+  ctx.fillText('Player 2: ' + players[1], 50, 150)
+
+  // TODO: load battle sprites, abilities, etc.
 }
 
 socket.on('connect', () => {
@@ -427,7 +542,6 @@ function sendChat() {
 }
 
 window.addEventListener('keydown', (e) => {
-
   const key = keyMap[e.key]
   if (key) {
     keys[key].pressed = true
@@ -436,7 +550,6 @@ window.addEventListener('keydown', (e) => {
 })
 
 window.addEventListener('keyup', (e) => {
-
   const key = keyMap[e.key]
   if (key) {
     keys[key].pressed = false
