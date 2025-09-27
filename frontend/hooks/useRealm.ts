@@ -6,8 +6,7 @@ export const useRealms = (options = {}) => {
   const { 
     limit = 50, // How many realms to fetch per batch
     autoFetch = true, // Whether to automatically start fetching
-    enabled = true, // Whether the hook is enabled
-    includeRequirements = false // Whether to fetch requirements data
+    enabled = true // Whether the hook is enabled
   } = options;
 
   const [realms, setRealms] = useState([]);
@@ -55,71 +54,37 @@ export const useRealms = (options = {}) => {
     enabled: enabled && autoFetch && !!realmAddresses && realmAddresses.length > 0,
   });
 
-  // Get realm requirements (optional)
-  const { 
-    data: realmRequirements, 
-    isLoading: isLoadingRequirements,
-    error: requirementsError,
-    refetch: refetchRequirements 
-  } = useReadContract({
-    address: REALM_FACTORY_ADDRESS,
-    abi: REALM_FACTORY_ABI,
-    functionName: 'getRealmsRequirements',
-    args: [realmAddresses || []],
-    enabled: enabled && autoFetch && includeRequirements && !!realmAddresses && realmAddresses.length > 0,
-  });
-
-  // Combine addresses with details and requirements
+  // Combine addresses with details
   useEffect(() => {
     if (realmAddresses && realmDetails) {
-      // Contract returns: titles, ticketPrices, capacities, realmDates, attendeeCounts, minimumAges
-      const [titles, ticketPrices, capacities, realmDates, attendeeCounts, minimumAges] = realmDetails;
+      // Contract returns: titles, ticketPrices, capacities, realmDates, attendeeCounts
+      const [titles, ticketPrices, capacities, realmDates, attendeeCounts] = realmDetails;
       
-      let combinedRealms = realmAddresses.map((address, index) => ({
+      const combinedRealms = realmAddresses.map((address, index) => ({
         address,
         title: titles[index] || '',
         ticketPrice: ticketPrices[index] || 0n,
         capacity: capacities[index] || 0n,
         realmDate: realmDates[index] || 0n,
         attendeeCount: attendeeCounts[index] || 0n,
-        minimumAge: minimumAges[index] || 0n,
       }));
-
-      // Add requirements if available
-      if (includeRequirements && realmRequirements) {
-        const [requiresMaleOnly, requiresFemaleOnly, reqMinimumAges, allowedCountries, blockedCountries] = realmRequirements;
-        
-        combinedRealms = combinedRealms.map((realm, index) => ({
-          ...realm,
-          requirements: {
-            requiresMaleOnly: requiresMaleOnly[index] || false,
-            requiresFemaleOnly: requiresFemaleOnly[index] || false,
-            minimumAge: reqMinimumAges[index] || 0n,
-            allowedCountries: allowedCountries[index] || [],
-            blockedCountries: blockedCountries[index] || [],
-          }
-        }));
-      }
 
       setRealms(combinedRealms);
       setHasMore(false); // We fetched all realms
       setError(null);
     }
-  }, [realmAddresses, realmDetails, realmRequirements, includeRequirements]);
+  }, [realmAddresses, realmDetails]);
 
   // Handle loading states
   useEffect(() => {
-    const loading = isLoadingTotal || isLoadingAddresses || isLoadingDetails || 
-                   (includeRequirements && isLoadingRequirements);
-    setIsLoading(loading);
-  }, [isLoadingTotal, isLoadingAddresses, isLoadingDetails, isLoadingRequirements, includeRequirements]);
+    setIsLoading(isLoadingTotal || isLoadingAddresses || isLoadingDetails);
+  }, [isLoadingTotal, isLoadingAddresses, isLoadingDetails]);
 
   // Handle errors
   useEffect(() => {
-    const combinedError = totalError || addressesError || detailsError || 
-                         (includeRequirements && requirementsError);
+    const combinedError = totalError || addressesError || detailsError;
     setError(combinedError);
-  }, [totalError, addressesError, detailsError, requirementsError, includeRequirements]);
+  }, [totalError, addressesError, detailsError]);
 
   // Manual refetch function
   const refetch = async () => {
@@ -129,9 +94,6 @@ export const useRealms = (options = {}) => {
     try {
       await refetchAddresses();
       await refetchDetails();
-      if (includeRequirements) {
-        await refetchRequirements();
-      }
     } catch (err) {
       setError(err);
     } finally {
@@ -172,7 +134,7 @@ export const useRealms = (options = {}) => {
 
 // Alternative hook for fetching specific creator's realms
 export const useCreatorRealms = (creatorAddress, options = {}) => {
-  const { enabled = true, autoFetch = true, includeRequirements = false } = options;
+  const { enabled = true, autoFetch = true } = options;
 
   const { 
     data: creatorRealmAddresses, 
@@ -200,70 +162,37 @@ export const useCreatorRealms = (creatorAddress, options = {}) => {
     enabled: enabled && autoFetch && !!creatorRealmAddresses && creatorRealmAddresses.length > 0,
   });
 
-  const { 
-    data: realmRequirements, 
-    isLoading: isLoadingRequirements,
-    error: requirementsError,
-    refetch: refetchRequirements 
-  } = useReadContract({
-    address: REALM_FACTORY_ADDRESS,
-    abi: REALM_FACTORY_ABI,
-    functionName: 'getRealmsRequirements',
-    args: [creatorRealmAddresses || []],
-    enabled: enabled && autoFetch && includeRequirements && !!creatorRealmAddresses && creatorRealmAddresses.length > 0,
-  });
-
   const [realms, setRealms] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
 
   useEffect(() => {
     if (creatorRealmAddresses && realmDetails) {
-      // Contract returns: titles, ticketPrices, capacities, realmDates, attendeeCounts, minimumAges
-      const [titles, ticketPrices, capacities, realmDates, attendeeCounts, minimumAges] = realmDetails;
+      // Contract returns: titles, ticketPrices, capacities, realmDates, attendeeCounts
+      const [titles, ticketPrices, capacities, realmDates, attendeeCounts] = realmDetails;
       
-      let combinedRealms = creatorRealmAddresses.map((address, index) => ({
+      const combinedRealms = creatorRealmAddresses.map((address, index) => ({
         address,
         title: titles[index] || '',
         ticketPrice: ticketPrices[index] || 0n,
         capacity: capacities[index] || 0n,
         realmDate: realmDates[index] || 0n,
         attendeeCount: attendeeCounts[index] || 0n,
-        minimumAge: minimumAges[index] || 0n,
       }));
-
-      // Add requirements if available
-      if (includeRequirements && realmRequirements) {
-        const [requiresMaleOnly, requiresFemaleOnly, reqMinimumAges, allowedCountries, blockedCountries] = realmRequirements;
-        
-        combinedRealms = combinedRealms.map((realm, index) => ({
-          ...realm,
-          requirements: {
-            requiresMaleOnly: requiresMaleOnly[index] || false,
-            requiresFemaleOnly: requiresFemaleOnly[index] || false,
-            minimumAge: reqMinimumAges[index] || 0n,
-            allowedCountries: allowedCountries[index] || [],
-            blockedCountries: blockedCountries[index] || [],
-          }
-        }));
-      }
 
       setRealms(combinedRealms);
       setError(null);
     }
-  }, [creatorRealmAddresses, realmDetails, realmRequirements, includeRequirements]);
+  }, [creatorRealmAddresses, realmDetails]);
 
   useEffect(() => {
-    const loading = isLoadingAddresses || isLoadingDetails || 
-                   (includeRequirements && isLoadingRequirements);
-    setIsLoading(loading);
-  }, [isLoadingAddresses, isLoadingDetails, isLoadingRequirements, includeRequirements]);
+    setIsLoading(isLoadingAddresses || isLoadingDetails);
+  }, [isLoadingAddresses, isLoadingDetails]);
 
   useEffect(() => {
-    const combinedError = addressesError || detailsError || 
-                         (includeRequirements && requirementsError);
+    const combinedError = addressesError || detailsError;
     setError(combinedError);
-  }, [addressesError, detailsError, requirementsError, includeRequirements]);
+  }, [addressesError, detailsError]);
 
   const refetch = async () => {
     setIsLoading(true);
@@ -272,9 +201,6 @@ export const useCreatorRealms = (creatorAddress, options = {}) => {
     try {
       await refetchAddresses();
       await refetchDetails();
-      if (includeRequirements) {
-        await refetchRequirements();
-      }
     } catch (err) {
       setError(err);
     } finally {
@@ -284,50 +210,6 @@ export const useCreatorRealms = (creatorAddress, options = {}) => {
 
   return {
     realms,
-    isLoading,
-    error,
-    refetch,
-  };
-};
-
-// Hook specifically for getting realm requirements
-export const useRealmRequirements = (realmAddresses, options = {}) => {
-  const { enabled = true, autoFetch = true } = options;
-
-  const { 
-    data: requirements, 
-    isLoading,
-    error,
-    refetch 
-  } = useReadContract({
-    address: REALM_FACTORY_ADDRESS,
-    abi: REALM_FACTORY_ABI,
-    functionName: 'getRealmsRequirements',
-    args: [realmAddresses || []],
-    enabled: enabled && autoFetch && !!realmAddresses && realmAddresses.length > 0,
-  });
-
-  const [formattedRequirements, setFormattedRequirements] = useState([]);
-
-  useEffect(() => {
-    if (requirements && realmAddresses) {
-      const [requiresMaleOnly, requiresFemaleOnly, minimumAges, allowedCountries, blockedCountries] = requirements;
-      
-      const formatted = realmAddresses.map((address, index) => ({
-        address,
-        requiresMaleOnly: requiresMaleOnly[index] || false,
-        requiresFemaleOnly: requiresFemaleOnly[index] || false,
-        minimumAge: minimumAges[index] || 0n,
-        allowedCountries: allowedCountries[index] || [],
-        blockedCountries: blockedCountries[index] || [],
-      }));
-
-      setFormattedRequirements(formatted);
-    }
-  }, [requirements, realmAddresses]);
-
-  return {
-    requirements: formattedRequirements,
     isLoading,
     error,
     refetch,

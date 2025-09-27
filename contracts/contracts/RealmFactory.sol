@@ -43,9 +43,7 @@ contract RealmFactory {
         uint256 realmDate,
         bool requiresMaleOnly,
         bool requiresFemaleOnly,
-        uint256 minimumAge,
-        string[] memory allowedCountries,
-        string[] memory blockedCountries
+        uint256 minimumAge
     ) external returns (address realmAddress) {
         require(bytes(title).length > 0, "Title cannot be empty");
         require(capacity > 0, "Capacity must be > 0");
@@ -62,9 +60,7 @@ contract RealmFactory {
             realmDate,
             requiresMaleOnly,
             requiresFemaleOnly,
-            minimumAge,
-            allowedCountries,
-            blockedCountries
+            minimumAge
         );
         
         // Update storage
@@ -87,9 +83,7 @@ contract RealmFactory {
         uint256 realmDate,
         bool requiresMaleOnly,
         bool requiresFemaleOnly,
-        uint256 minimumAge,
-        string[] memory allowedCountries,
-        string[] memory blockedCountries
+        uint256 minimumAge
     ) internal returns (address) {
         Realm.RealmParams memory realmParams = Realm.RealmParams({
             creator: msg.sender,
@@ -103,9 +97,7 @@ contract RealmFactory {
             verificationConfigId: VERIFICATION_CONFIG_ID,
             requiresMaleOnly: requiresMaleOnly,
             requiresFemaleOnly: requiresFemaleOnly,
-            minimumAge: minimumAge,
-            allowedCountries: allowedCountries,
-            blockedCountries: blockedCountries
+            minimumAge: minimumAge
         });
         
         Realm newRealm = new Realm(
@@ -167,7 +159,7 @@ contract RealmFactory {
                     attendeeCounts[i]
                 ) = realmContract.getRealmDetails();
                 
-                (, , minimumAges[i], ,) = realmContract.getRealmRequirements();
+                (, , minimumAges[i]) = realmContract.getRealmRequirements();
             }
         }
     }
@@ -175,16 +167,12 @@ contract RealmFactory {
     function getRealmsRequirements(address[] memory realmAddresses) external view returns (
         bool[] memory requiresMaleOnly,
         bool[] memory requiresFemaleOnly,
-        uint256[] memory minimumAges,
-        string[][] memory allowedCountries,
-        string[][] memory blockedCountries
+        uint256[] memory minimumAges
     ) {
         uint256 length = realmAddresses.length;
         requiresMaleOnly = new bool[](length);
         requiresFemaleOnly = new bool[](length);
         minimumAges = new uint256[](length);
-        allowedCountries = new string[][](length);
-        blockedCountries = new string[][](length);
         
         for (uint256 i = 0; i < length; i++) {
             if (isValidRealm[realmAddresses[i]]) {
@@ -192,9 +180,7 @@ contract RealmFactory {
                 (
                     requiresMaleOnly[i],
                     requiresFemaleOnly[i],
-                    minimumAges[i],
-                    allowedCountries[i],
-                    blockedCountries[i]
+                    minimumAges[i]
                 ) = realmContract.getRealmRequirements();
             }
         }

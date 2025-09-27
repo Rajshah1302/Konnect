@@ -337,7 +337,7 @@ function animate() {
   if (nearby.length > 0) {
     const nearbyPlayer = gameState.otherPlayers.get(nearby[0].id)
     btn.style.display = 'block'
-    btn.textContent = `Konnect with ${nearby[0].name}`
+    btn.textContent = `Connect with ${nearby[0].name}`
 
     btn.onclick = () => {
       if (nearbyPlayer && nearbyPlayer.link) {

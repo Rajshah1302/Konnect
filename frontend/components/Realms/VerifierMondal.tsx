@@ -4,6 +4,7 @@ import { Users, Calendar, X, Shield, CheckCircle, Coins } from "lucide-react";
 import { SelfQRcodeWrapper, SelfAppBuilder } from "@selfxyz/qrcode";
 import { useAccount } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
+import { useRouter } from "next/navigation"; // Add this import
 
 type VerifierModalProps = {
   isOpen: boolean;
@@ -22,7 +23,10 @@ const VerifierModal: React.FC<VerifierModalProps> = ({
   console.log("contract address : " + contractAddress);
   const [selfApp, setSelfApp] = useState(null);
   const [isVerificationComplete, setIsVerificationComplete] = useState(false);
+  const [isJoining, setIsJoining] = useState(false); // Add loading state
   const { address, isConnected } = useAccount();
+  const router = useRouter(); // Initialize router
+  
   // Initialize Self App when wallet is connected
   useEffect(() => {
     if (!isOpen || !event || !isConnected || !address) {
@@ -57,9 +61,7 @@ const VerifierModal: React.FC<VerifierModalProps> = ({
             minimumAge: 18,
             excludedCountries: [],
             ofac: false,
-            gender: true,
-            date_of_birth: true,
-            nationality: true
+            gender: true
           },
           userDefinedData,
         }).build();
@@ -78,6 +80,7 @@ const VerifierModal: React.FC<VerifierModalProps> = ({
     if (!isOpen) {
       setIsVerificationComplete(false);
       setSelfApp(null);
+      setIsJoining(false);
     }
   }, [isOpen]);
 
@@ -85,6 +88,31 @@ const VerifierModal: React.FC<VerifierModalProps> = ({
 
   const handleSuccessfulVerification = () => {
     setIsVerificationComplete(true);
+  };
+
+  // Handle join button click with redirect
+  const handleJoinEvent = async () => {
+    setIsJoining(true);
+    
+    try {
+      // You can add any payment logic here if needed
+      // For example, if event.ticketPrice > 0, handle payment first
+      
+      // Validate contract address before redirecting
+      if (!/^0x[a-fA-F0-9]{40}$/.test(contractAddress)) {
+        throw new Error("Invalid contract address format");
+      }
+      
+      // Close modal first
+      onClose();
+      
+      // Redirect to the game page
+      router.push(`/${contractAddress}`);
+    } catch (error) {
+      console.error("Failed to join event:", error);
+      alert("Failed to join game. Please try again.");
+      setIsJoining(false);
+    }
   };
 
   const verificationReqs = [
@@ -269,12 +297,18 @@ const VerifierModal: React.FC<VerifierModalProps> = ({
                     }}
                   </ConnectButton.Custom>
                 ) : isVerificationComplete ? (
-                  <button className="w-full bg-green-600 hover:bg-green-700 text-white font-medium py-3 px-6 rounded-xl transition-colors flex items-center justify-center space-x-2">
+                  <button 
+                    onClick={handleJoinEvent}
+                    disabled={isJoining}
+                    className="w-full bg-green-600 hover:bg-green-700 disabled:bg-green-600/50 text-white font-medium py-3 px-6 rounded-xl transition-colors flex items-center justify-center space-x-2"
+                  >
                     <Coins size={18} />
                     <span>
-                      {event.ticketPrice > 0
-                        ? `Join (${event.ticketPrice} ETH)`
-                        : "Join Free"}
+                      {isJoining 
+                        ? "Joining..." 
+                        : event.ticketPrice > 0
+                          ? `Join (${event.ticketPrice} ETH)`
+                          : "Join Free"}
                     </span>
                   </button>
                 ) : null}
