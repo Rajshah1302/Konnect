@@ -139,6 +139,49 @@ io.on('connection', (socket) => {
     console.log(`[${contractAddress}] ${player.name}: ${message}`)
   })
   
+// Handle challenge requests
+socket.on('challengePlayer', ({ contractAddress, targetId }) => {
+  const challenger = gameManager.getPlayer(contractAddress, socket.id)
+  const target = gameManager.getPlayer(contractAddress, targetId)
+
+  if (!challenger || !target) {
+    console.log('❌ Invalid challenge attempt')
+    return
+  }
+
+  console.log(`⚔️ ${challenger.name} (${socket.id}) challenged ${target.name} (${targetId})`)
+
+  // Notify the target player
+  io.to(targetId).emit('challenged', {
+    fromId: socket.id,
+    name: challenger.name
+  })
+})
+
+// Handle challenge responses
+socket.on('challengeResponse', ({ contractAddress, to, accepted }) => {
+  const responder = gameManager.getPlayer(contractAddress, socket.id)
+  if (!responder) return
+
+  console.log(`📩 ${responder.name} (${socket.id}) responded to ${to}: ${accepted}`)
+
+  // Notify the challenger of the response
+  io.to(to).emit('challengeResponse', {
+    fromId: socket.id,
+    accepted
+  })
+
+  // (Optional) If accepted, you could move both players into a "battle room"
+  // Example:
+  // if (accepted) {
+  //   const battleRoom = `battle-${socket.id}-${to}`
+  //   socket.join(battleRoom)
+  //   io.sockets.sockets.get(to)?.join(battleRoom)
+  //   io.to(battleRoom).emit('battleStart', { players: [socket.id, to] })
+  // }
+})
+
+
   // Handle player disconnect
   socket.on('disconnect', () => {
     console.log(`Player disconnected: ${socket.id}`)

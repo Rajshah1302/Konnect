@@ -38,6 +38,22 @@ const domElements = {
   chatInput: document.getElementById('chatInput')
 }
 
+function getNearbyPlayers(radius = 50) {
+  const me = getPlayerWorldPosition()
+  const nearby = []
+
+  for (const [id, other] of gameState.otherPlayers.entries()) {
+    const dx = me.x - other.worldPosition.x
+    const dy = me.y - other.worldPosition.y
+    const dist = Math.sqrt(dx * dx + dy * dy)
+
+    if (dist <= radius) {
+      nearby.push({ id, name: other.playerName })
+    }
+  }
+  return nearby
+}
+
 function getContractAddress() {
   const path = window.location.pathname
   console.log('🌐 Current URL path:', path)
@@ -56,6 +72,7 @@ function updateUI() {
   uiUpdateScheduled = true
   requestAnimationFrame(() => {
     const { myPlayerName, contractAddress, connected } = gameState
+    player.name = myPlayerName
     const playerCount = gameState.otherPlayers.size + 1
 
     domElements.playerInfo.textContent = `Player: ${
@@ -91,7 +108,7 @@ function createCollisionMap() {
 function createBoundaries() {
   const collisionsMap = createCollisionMap()
   const boundaries = []
-  const offset = { x: -735, y: -650 }
+  const offset = { x: -735, y: -610 }
 
   collisionsMap.forEach((row, i) => {
     row.forEach((symbol, j) => {
@@ -232,7 +249,6 @@ function checkCollision(direction) {
 }
 
 function handleMovement() {
-
   const direction = gameState.lastKey
   if (!keys[direction]?.pressed) {
     player.animate = false
@@ -310,7 +326,57 @@ function animate() {
   foreground.draw()
 
   handleMovement()
+  const nearby = getNearbyPlayers()
+  const btn = document.getElementById('challengeBtn')
+
+  if (nearby.length > 0) {
+    btn.style.display = 'block'
+    btn.onclick = () => {
+      socket.emit('challengePlayer', {
+        contractAddress: gameState.contractAddress,
+        targetId: nearby[0].id
+      })
+    }
+  } else {
+    btn.style.display = 'none'
+  }
 }
+
+socket.on('challenged', ({ fromId, name }) => {
+  const popup = document.getElementById('challengePopup')
+  document.getElementById(
+    'challengeText'
+  ).innerText = `${name} has challenged you!`
+  popup.style.display = 'block'
+
+  document.getElementById('acceptBtn').onclick = () => {
+    socket.emit('challengeResponse', {
+      contractAddress: gameState.contractAddress,
+      to: fromId,
+      accepted: true
+    })
+    popup.style.display = 'none'
+    alert(`🎮 Starting battle...`)
+  }
+
+  document.getElementById('declineBtn').onclick = () => {
+    socket.emit('challengeResponse', {
+      contractAddress: gameState.contractAddress,
+      to: fromId,
+      accepted: false
+    })
+    popup.style.display = 'none'
+  }
+})
+
+socket.on('challengeResponse', ({ fromId, accepted }) => {
+  if (accepted) {
+    alert(`Player ${fromId} accepted! 🎮 Starting battle...`)
+    // TODO: trigger your battle/minigame
+  } else {
+    alert(`Player ${fromId} declined ❌`)
+  }
+})
 
 socket.on('connect', () => {
   console.log('Connected to server')
@@ -427,7 +493,6 @@ function sendChat() {
 }
 
 window.addEventListener('keydown', (e) => {
-
   const key = keyMap[e.key]
   if (key) {
     keys[key].pressed = true
@@ -436,7 +501,6 @@ window.addEventListener('keydown', (e) => {
 })
 
 window.addEventListener('keyup', (e) => {
-
   const key = keyMap[e.key]
   if (key) {
     keys[key].pressed = false
