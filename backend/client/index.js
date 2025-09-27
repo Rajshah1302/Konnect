@@ -19,6 +19,7 @@ canvas.height = CANVAS_HEIGHT
 const socket = io()
 
 const gameState = {
+  paused: false,
   contractAddress: null,
   myPlayerId: null,
   myPlayerName: null,
@@ -28,6 +29,10 @@ const gameState = {
   lastMovementTime: 0,
   lastKey: '',
   moving: false
+}
+
+const battle = {
+  intiated: false
 }
 
 const domElements = {
@@ -307,8 +312,8 @@ function syncPlayerPosition() {
 
 let animationId
 function animate() {
+  if (gameState.paused) return
   animationId = requestAnimationFrame(animate)
-
   c.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT)
 
   background.draw()
@@ -324,6 +329,12 @@ function animate() {
   player.draw()
 
   foreground.draw()
+
+  if (battle.intiated) {
+    const btn = document.getElementById('challengeBtn')
+    btn.style.display = 'none'
+    return
+  }
 
   handleMovement()
   const nearby = getNearbyPlayers()
@@ -343,40 +354,78 @@ function animate() {
 }
 
 socket.on('challenged', ({ fromId, name }) => {
+  gameState.paused = true
   const popup = document.getElementById('challengePopup')
   document.getElementById(
     'challengeText'
   ).innerText = `${name} has challenged you!`
   popup.style.display = 'block'
 
-  document.getElementById('acceptBtn').onclick = () => {
-    socket.emit('challengeResponse', {
-      contractAddress: gameState.contractAddress,
-      to: fromId,
-      accepted: true
-    })
-    popup.style.display = 'none'
-    alert(`🎮 Starting battle...`)
-  }
+  try {
+    document.getElementById('acceptBtn').onclick = () => {
+      socket.emit('challengeResponse', {
+        contractAddress: gameState.contractAddress,
+        to: fromId,
+        accepted: true
+      })
+      popup.style.display = 'none'
+      battle.intiated = true
+    }
 
-  document.getElementById('declineBtn').onclick = () => {
-    socket.emit('challengeResponse', {
-      contractAddress: gameState.contractAddress,
-      to: fromId,
-      accepted: false
-    })
-    popup.style.display = 'none'
+    document.getElementById('declineBtn').onclick = () => {
+      socket.emit('challengeResponse', {
+        contractAddress: gameState.contractAddress,
+        to: fromId,
+        accepted: false
+      })
+
+      popup.style.display = 'none'
+
+      // Reset back to overworld mode
+      gameState.paused = false
+      battle.initiated = false // 🔑 ensure no “battle mode” flag lingers
+      if (!animationId) {
+        animate() // 🔑 restart main loop if you stopped it earlier
+      }
+    }
+  } finally {
+    gameState.paused = false
   }
 })
 
-socket.on('challengeResponse', ({ fromId, accepted }) => {
-  if (accepted) {
-    alert(`Player ${fromId} accepted! 🎮 Starting battle...`)
-    // TODO: trigger your battle/minigame
-  } else {
-    alert(`Player ${fromId} declined ❌`)
-  }
+socket.on('battleStart', ({ room, players }) => {
+  console.log('⚔️ Entering battle:', room, players)
+  const btn = document.getElementById('challengeBtn')
+  btn.style.display = 'none'
+  battle.intiated = true
+  // Stop overworld loop
+  cancelAnimationFrame(animationId)
+
+  // Transition effect
+  document.body.style.transition = 'background 1s'
+  document.body.style.background = 'black'
+
+  setTimeout(() => {
+    startBattleScene(players)
+  }, 1000)
 })
+
+function startBattleScene(players) {
+  const canvas = document.querySelector('canvas')
+  const ctx = canvas.getContext('2d')
+
+  // Clear screen
+  ctx.clearRect(0, 0, canvas.width, canvas.height)
+
+  // Example: draw battle UI
+  ctx.fillStyle = 'white'
+  ctx.font = '20px Arial'
+  ctx.fillText('⚔️ Battle Start!', 50, 50)
+  ctx.fillText('Player 1: ' + players[0], 50, 100)
+  ctx.fillText('Player 2: ' + players[1], 50, 150)
+
+  // TODO: load battle sprites, abilities, etc.
+}
 
 socket.on('connect', () => {
   console.log('Connected to server')

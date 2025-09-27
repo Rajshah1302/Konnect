@@ -8,8 +8,8 @@ const app = express()
 const server = http.createServer(app)
 const io = socketIo(server, {
   cors: {
-    origin: "*",
-    methods: ["GET", "POST"]
+    origin: '*',
+    methods: ['GET', 'POST']
   }
 })
 
@@ -19,7 +19,10 @@ const PORT = process.env.PORT || 3000
 app.use(express.static(path.join(__dirname, '../client')))
 
 // Handle static file routing explicitly for game pages
-app.use('/game/:contractAddress', express.static(path.join(__dirname, '../client')))
+app.use(
+  '/game/:contractAddress',
+  express.static(path.join(__dirname, '../client'))
+)
 
 // Game manager instance
 const gameManager = new GameManager()
@@ -27,12 +30,12 @@ const gameManager = new GameManager()
 // Serve game page with contract address
 app.get('/game/:contractAddress', (req, res) => {
   const { contractAddress } = req.params
-  
+
   // Validate contract address format (basic ethereum address validation)
   if (!/^0x[a-fA-F0-9]{40}$/.test(contractAddress)) {
     return res.status(400).send('Invalid contract address format')
   }
-  
+
   // Send the game page
   res.sendFile(path.join(__dirname, '../client/game.html'))
 })
@@ -43,59 +46,68 @@ app.get('/', (req, res) => {
     '0x1234567890abcdef1234567890abcdef12345678',
     '0xabcdef1234567890abcdef1234567890abcdef12'
   ]
-  const randomContract = mockContracts[Math.floor(Math.random() * mockContracts.length)]
+  const randomContract =
+    mockContracts[Math.floor(Math.random() * mockContracts.length)]
   res.redirect(`/game/${randomContract}`)
 })
 
 // Socket.io connection handling
 io.on('connection', (socket) => {
   console.log(`Player connected: ${socket.id}`)
-  
+
   // Player joins a game room
   socket.on('joinGame', (data) => {
     console.log('🎮 Join game request:', data)
     let { contractAddress, playerName } = data
-    
+
     // Clean up contract address - remove trailing slash
     contractAddress = contractAddress.replace(/\/$/, '')
     console.log('🧹 Cleaned contract address:', contractAddress)
-    
+
     if (!/^0x[a-fA-F0-9]{40}$/.test(contractAddress)) {
       console.log('❌ Invalid contract address:', contractAddress)
       socket.emit('error', 'Invalid contract address')
       return
     }
-    
+
     // Add player to game
-    const gameState = gameManager.addPlayer(contractAddress, socket.id, playerName)
+    const gameState = gameManager.addPlayer(
+      contractAddress,
+      socket.id,
+      playerName
+    )
     console.log('✅ Player added to game. Game state:', {
       contractAddress,
       playerCount: Object.keys(gameState.players).length,
       players: Object.keys(gameState.players)
     })
-    
+
     // Join the room
     socket.join(contractAddress)
     console.log('🏠 Socket joined room:', contractAddress)
-    
+
     // Send current game state to new player
     socket.emit('gameState', gameState)
     console.log('📤 Sent game state to new player')
-    
+
     // Notify other players in the room about new player
     socket.to(contractAddress).emit('playerJoined', {
       playerId: socket.id,
       player: gameState.players[socket.id]
     })
     console.log('📢 Notified other players about new player')
-    
-    console.log(`👤 Player ${gameState.players[socket.id].name} (${socket.id}) joined game ${contractAddress}`)
+
+    console.log(
+      `👤 Player ${gameState.players[socket.id].name} (${
+        socket.id
+      }) joined game ${contractAddress}`
+    )
   })
-  
+
   // Handle player movement
   socket.on('playerMove', (data) => {
     const { contractAddress, position, direction, animate } = data
-    
+
     // Update player in game manager
     const updated = gameManager.updatePlayer(contractAddress, socket.id, {
       position,
@@ -103,7 +115,7 @@ io.on('connection', (socket) => {
       animate,
       lastUpdate: Date.now()
     })
-    
+
     if (updated) {
       // Broadcast movement to other players in the same room
       socket.to(contractAddress).emit('playerUpdate', {
@@ -114,90 +126,107 @@ io.on('connection', (socket) => {
       })
     }
   })
-  
+
   // Handle chat messages
   socket.on('chatMessage', (data) => {
     const { contractAddress, message } = data
-    
+
     if (!message || message.trim().length === 0 || message.length > 100) {
       return // Ignore empty or too long messages
     }
-    
+
     const player = gameManager.getPlayer(contractAddress, socket.id)
     if (!player) return
-    
+
     const chatData = {
       playerId: socket.id,
       playerName: player.name,
       message: message.trim(),
       timestamp: Date.now()
     }
-    
+
     // Broadcast chat message to all players in the room (including sender)
     io.to(contractAddress).emit('chatMessage', chatData)
-    
+
     console.log(`[${contractAddress}] ${player.name}: ${message}`)
   })
-  
-// Handle challenge requests
-socket.on('challengePlayer', ({ contractAddress, targetId }) => {
-  const challenger = gameManager.getPlayer(contractAddress, socket.id)
-  const target = gameManager.getPlayer(contractAddress, targetId)
 
-  if (!challenger || !target) {
-    console.log('❌ Invalid challenge attempt')
-    return
-  }
+  // Handle challenge requests
+  socket.on('challengePlayer', ({ contractAddress, targetId }) => {
+    const challenger = gameManager.getPlayer(contractAddress, socket.id)
+    const target = gameManager.getPlayer(contractAddress, targetId)
 
-  console.log(`⚔️ ${challenger.name} (${socket.id}) challenged ${target.name} (${targetId})`)
+    if (!challenger || !target) {
+      console.log('❌ Invalid challenge attempt')
+      return
+    }
 
-  // Notify the target player
-  io.to(targetId).emit('challenged', {
-    fromId: socket.id,
-    name: challenger.name
-  })
-})
+    console.log(
+      `⚔️ ${challenger.name} (${socket.id}) challenged ${target.name} (${targetId})`
+    )
 
-// Handle challenge responses
-socket.on('challengeResponse', ({ contractAddress, to, accepted }) => {
-  const responder = gameManager.getPlayer(contractAddress, socket.id)
-  if (!responder) return
-
-  console.log(`📩 ${responder.name} (${socket.id}) responded to ${to}: ${accepted}`)
-
-  // Notify the challenger of the response
-  io.to(to).emit('challengeResponse', {
-    fromId: socket.id,
-    accepted
+    // Notify the target player
+    io.to(targetId).emit('challenged', {
+      fromId: socket.id,
+      name: challenger.name
+    })
   })
 
-  // (Optional) If accepted, you could move both players into a "battle room"
-  // Example:
-  // if (accepted) {
-  //   const battleRoom = `battle-${socket.id}-${to}`
-  //   socket.join(battleRoom)
-  //   io.sockets.sockets.get(to)?.join(battleRoom)
-  //   io.to(battleRoom).emit('battleStart', { players: [socket.id, to] })
-  // }
-})
+  // Handle challenge responses
+  socket.on('challengeResponse', ({ contractAddress, to, accepted }) => {
+    const responder = gameManager.getPlayer(contractAddress, socket.id)
+    if (!responder) return
 
+    if (accepted) {
+      const battleRoom = `battle-${socket.id}-${to}`
+
+      // Get the opponent socket
+      const opponentSocket = io.sockets.sockets.get(to)
+      if (!opponentSocket) {
+        console.log('❌ Opponent not found')
+        return
+      }
+
+      // Move both players into battle room
+      socket.join(battleRoom)
+      opponentSocket.join(battleRoom)
+
+      // Add a small delay to ensure both players are in the room
+      setTimeout(() => {
+        // Notify both players
+        io.to(battleRoom).emit('battleStart', {
+          room: battleRoom,
+          players: [socket.id, to]
+        })
+
+        console.log(
+          `⚔️ Battle started between ${socket.id} and ${to} in ${battleRoom}`
+        )
+      }, 100)
+    } else {
+      io.to(to).emit('challengeResponse', {
+        fromId: socket.id,
+        accepted: false
+      })
+    }
+  })
 
   // Handle player disconnect
   socket.on('disconnect', () => {
     console.log(`Player disconnected: ${socket.id}`)
-    
+
     // Find and remove player from all games
     const contractAddress = gameManager.removePlayer(socket.id)
-    
+
     if (contractAddress) {
       // Notify other players in the room
       socket.to(contractAddress).emit('playerLeft', socket.id)
-      
+
       // Clean up empty games
       gameManager.cleanupEmptyGames()
     }
   })
-  
+
   // Handle ping for connection testing
   socket.on('ping', () => {
     socket.emit('pong')
@@ -213,6 +242,10 @@ setInterval(() => {
 server.listen(PORT, () => {
   console.log(`🎮 Game server running on http://localhost:${PORT}`)
   console.log(`📝 Mock games available:`)
-  console.log(`   - http://localhost:${PORT}/game/0x1234567890abcdef1234567890abcdef12345678`)
-  console.log(`   - http://localhost:${PORT}/game/0xabcdef1234567890abcdef1234567890abcdef12`)
+  console.log(
+    `   - http://localhost:${PORT}/game/0x1234567890abcdef1234567890abcdef12345678`
+  )
+  console.log(
+    `   - http://localhost:${PORT}/game/0xabcdef1234567890abcdef1234567890abcdef12`
+  )
 })
