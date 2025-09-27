@@ -20,6 +20,7 @@ contract Realm is SelfVerificationRoot {
     bytes32 public verificationConfigId;
     bool public requiresMaleOnly;
     bool public requiresFemaleOnly;
+    uint256 public minimumAge; // Added minimum age field
 
     uint256 public attendeeCount = 0;
     mapping(address => bool) public verifiedUsers;
@@ -46,6 +47,7 @@ contract Realm is SelfVerificationRoot {
         bytes32 verificationConfigId;
         bool requiresMaleOnly;
         bool requiresFemaleOnly;
+        uint256 minimumAge; // Added to RealmParams struct
     }
 
     constructor(
@@ -69,6 +71,7 @@ contract Realm is SelfVerificationRoot {
         verificationConfigId = params.verificationConfigId;
         requiresMaleOnly = params.requiresMaleOnly;
         requiresFemaleOnly = params.requiresFemaleOnly;
+        minimumAge = params.minimumAge; 
         attendees[params.creator] = true;
         attendeeList.push(params.creator);
         attendeeCount++;
@@ -97,6 +100,12 @@ contract Realm is SelfVerificationRoot {
             require(
                 keccak256(abi.encodePacked(output.gender)) == keccak256(abi.encodePacked("F")),
                 "Females only"
+            );
+        }
+        if (minimumAge > 0) {
+            require(
+                output.olderThan >= minimumAge,
+                "Does not meet minimum age requirement"
             );
         }
     }
@@ -155,10 +164,11 @@ contract Realm is SelfVerificationRoot {
         view
         returns (
             bool _requiresMaleOnly,
-            bool _requiresFemaleOnly
+            bool _requiresFemaleOnly,
+            uint256 _minimumAge // Added minimum age to return values
         )
     {
-        return (requiresMaleOnly, requiresFemaleOnly);
+        return (requiresMaleOnly, requiresFemaleOnly, minimumAge);
     }
 
     function getRealmLocation() external view returns (int256 _latitude, int256 _longitude) {
