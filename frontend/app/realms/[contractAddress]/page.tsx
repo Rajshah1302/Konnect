@@ -8,10 +8,7 @@ const ContractGamePage: React.FC = () => {
   const [error, setError] = useState<string>("");
 
   // Your game server URL - adjust this to match your backend
-  const GAME_SERVER_URL =
-    process.env.NODE_ENV === "production"
-      ? "https://your-game-server.com"
-      : "http://localhost:3000";
+  const GAME_SERVER_URL = "https://konnect-1-orrz.onrender.com";
 
   useEffect(() => {
     // Validate contract address format
@@ -32,26 +29,26 @@ const ContractGamePage: React.FC = () => {
     document.body.style.position = "fixed";
     document.body.style.width = "100%";
     document.body.style.height = "100%";
-    
+
     // Prevent scroll events
-    window.addEventListener('wheel', preventScroll, { passive: false });
-    window.addEventListener('touchmove', preventScroll, { passive: false });
-    window.addEventListener('scroll', preventScroll, { passive: false });
+    window.addEventListener("wheel", preventScroll, { passive: false });
+    window.addEventListener("touchmove", preventScroll, { passive: false });
+    window.addEventListener("scroll", preventScroll, { passive: false });
 
     // Listen for messages from the iframe
     const handleMessage = (event: MessageEvent) => {
       // Verify the origin for security
-      if (event.origin !== GAME_SERVER_URL.replace(/:\d+$/, '')) {
+      if (event.origin !== GAME_SERVER_URL.replace(/:\d+$/, "")) {
         return;
       }
 
       // Handle navigation requests from the iframe
-      if (event.data.type === 'navigate') {
+      if (event.data.type === "navigate") {
         window.location.href = event.data.url;
       }
     };
 
-    window.addEventListener('message', handleMessage);
+    window.addEventListener("message", handleMessage);
 
     // Cleanup function to restore scrolling when component unmounts
     return () => {
@@ -60,11 +57,11 @@ const ContractGamePage: React.FC = () => {
       document.body.style.position = "unset";
       document.body.style.width = "unset";
       document.body.style.height = "unset";
-      
-      window.removeEventListener('wheel', preventScroll);
-      window.removeEventListener('touchmove', preventScroll);
-      window.removeEventListener('scroll', preventScroll);
-      window.removeEventListener('message', handleMessage);
+
+      window.removeEventListener("wheel", preventScroll);
+      window.removeEventListener("touchmove", preventScroll);
+      window.removeEventListener("scroll", preventScroll);
+      window.removeEventListener("message", handleMessage);
     };
   }, [contractAddress, GAME_SERVER_URL]);
 
@@ -105,9 +102,9 @@ const ContractGamePage: React.FC = () => {
             sandbox="allow-scripts allow-same-origin allow-forms allow-modals allow-top-navigation allow-popups"
             allow="gamepad; microphone; camera"
             style={{
-              border: 'none',
-              outline: 'none',
-              overflow: 'hidden'
+              border: "none",
+              outline: "none",
+              overflow: "hidden",
             }}
           />
         </div>
