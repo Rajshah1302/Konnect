@@ -107,7 +107,7 @@ const VerifierModal: React.FC<VerifierModalProps> = ({
       onClose();
 
       // Redirect to the game page
-      router.push(`/${contractAddress}`);
+      router.push(`/realms/0x1234567890abcdef1234567890abcdef12345678`);
     } catch (error) {
       console.error("Failed to join event:", error);
       alert("Failed to join game. Please try again.");

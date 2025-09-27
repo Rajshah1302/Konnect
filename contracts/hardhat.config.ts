@@ -16,6 +16,18 @@ const config: HardhatUserConfig = {
     },
   },
   networks: {
+    // Celo Mainnet
+    celo: {
+      url: "https://forno.celo.org",
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+      chainId: 42220,
+      gasPrice: 200000000000, // 200 gwei
+      timeout: 120000, // 2 minutes timeout
+      httpHeaders: {
+        "User-Agent": "hardhat",
+      },
+    },
+    // Celo Sepolia Testnet (existing)
     celoSepolia: {
       url: "https://forno.celo-sepolia.celo-testnet.org",
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
@@ -29,9 +41,22 @@ const config: HardhatUserConfig = {
   },
   etherscan: {
     apiKey: {
+      // Celo Mainnet
+      celo: process.env.CELOSCAN_API_KEY || "",
+      // Celo Sepolia Testnet (existing)
       celoSepolia: process.env.CELOSCAN_API_KEY || "",
     },
     customChains: [
+      // Celo Mainnet
+      {
+        network: "celo",
+        chainId: 42220,
+        urls: {
+          apiURL: "https://api.celoscan.io/api",
+          browserURL: "https://celoscan.io",
+        },
+      },
+      // Celo Sepolia Testnet (existing)
       {
         network: "celoSepolia",
         chainId: 11142220,
@@ -47,7 +72,7 @@ const config: HardhatUserConfig = {
     currency: "USD",
   },
   mocha: {
-    timeout: 120000, // 2 minutes for tests
+    timeout: 120000, 
   },
 };
 
