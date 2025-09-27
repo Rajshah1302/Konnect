@@ -39,6 +39,14 @@ class GameManager {
     return `${adjective}${noun}${numbers}.eth`
   }
 
+  // Add this method to generate mock links
+  generateMockLink() {
+    const mockLinks = [
+      'https://nfc.ethglobal.com/?av=A02.03.000158.1F49A48B&v=01.G1.000050.C8FDEE3B&pk1=043BDFA6C7E7B6D4B7923062DD53D2C81F3F91C667415B231463EE59EE94096F88600690AED51DEDD7487B77A85A7FC1D8121D11725902B8C4EB485AEE3621232B&latch1=100AEACC48627A78852BF29E846E97FFE58C6C62B6C7196B66E032C591208EBF&cmd=0000&res=00'
+    ]
+    return mockLinks[Math.floor(Math.random() * mockLinks.length)]
+  }
+
   // Generate random starting position
   generateStartingPosition() {
     // Random position within a reasonable spawn area
@@ -78,7 +86,8 @@ class GameManager {
       direction: 'down', // Default sprite direction
       animate: false,
       joinedAt: Date.now(),
-      lastUpdate: Date.now()
+      lastUpdate: Date.now(),
+      link: this.generateMockLink()
     }
 
     // Add player to game

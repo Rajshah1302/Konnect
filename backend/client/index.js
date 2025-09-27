@@ -330,23 +330,24 @@ function animate() {
 
   foreground.draw()
 
-  if (battle.intiated) {
-    const btn = document.getElementById('challengeBtn')
-    btn.style.display = 'none'
-    return
-  }
-
   handleMovement()
   const nearby = getNearbyPlayers()
-  const btn = document.getElementById('challengeBtn')
+  const btn = document.getElementById('konnectBtn')
 
   if (nearby.length > 0) {
+    const nearbyPlayer = gameState.otherPlayers.get(nearby[0].id)
     btn.style.display = 'block'
+    btn.textContent = `Konnect with ${nearby[0].name}`
+
     btn.onclick = () => {
-      socket.emit('challengePlayer', {
-        contractAddress: gameState.contractAddress,
-        targetId: nearby[0].id
-      })
+      if (nearbyPlayer && nearbyPlayer.link) {
+        window.open(nearbyPlayer.link, '_blank')
+        console.log(
+          `🔗 Opening ${nearbyPlayer.playerName}'s link: ${nearbyPlayer.link}`
+        )
+      } else {
+        console.log('No link available for this player')
+      }
     }
   } else {
     btn.style.display = 'none'
@@ -468,6 +469,7 @@ socket.on('gameState', (data) => {
         direction: playerData.direction || 'down'
       })
       otherPlayer.worldPosition = playerData.position
+      otherPlayer.link = playerData.link
       gameState.otherPlayers.set(playerId, otherPlayer)
     }
   })
@@ -486,6 +488,7 @@ socket.on('playerJoined', (data) => {
       direction: data.player.direction || 'down'
     })
     otherPlayer.worldPosition = data.player.position
+    otherPlayer.link = data.player.link
     gameState.otherPlayers.set(data.playerId, otherPlayer)
   }
 
