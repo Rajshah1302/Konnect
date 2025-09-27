@@ -26,7 +26,7 @@ async function main() {
 
   console.log("✅ RealmFactory deployed to:", realmFactoryAddress);
   console.log("🔗 Identity Hub V2:", IDENTITY_VERIFICATION_HUB_V2);
-  console.log("👤 Owner:", await realmFactory.owner());
+  // console.log("👤 Owner:", await realmFactory.owner());
   console.log(
     "🔧 Verification Config ID:",
     await realmFactory.VERIFICATION_CONFIG_ID()

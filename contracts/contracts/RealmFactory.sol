@@ -30,7 +30,7 @@ contract RealmFactory {
         owner = msg.sender;
     }
     
-    bytes32 public constant VERIFICATION_CONFIG_ID = 0x7b6436b0c98f62380866d9432c2af0ee08ce16a171bda6951aecd95ee1307d61;
+    bytes32 public constant VERIFICATION_CONFIG_ID = 0xc52f992ebee4435b00b65d2c74b12435e96359d1ccf408041528414e6ea687bc;
     
     function createRealm(
         string memory title,
