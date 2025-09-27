@@ -46,11 +46,11 @@ export const useCreateRealm = () => {
     // Convert coordinates to int256 (multiply by 1e6 for precision)
     // Handle both online and offline events
     let latitude, longitude;
-    
+
     if (formData.isOnline || !formData.latitude || !formData.longitude) {
       // For online events or missing coordinates, use 0
-      latitude = 0n;
-      longitude = 0n;
+      latitude = BigInt(0);
+      longitude = BigInt(0);
     } else {
       // Convert to int256 with 6 decimal precision
       latitude = BigInt(Math.floor(parseFloat(formData.latitude) * 1000000));
@@ -60,7 +60,7 @@ export const useCreateRealm = () => {
     // Convert ticket price to wei (assuming it's in CELO)
     const ticketPriceWei = formData.ticketPrice
       ? parseEther(formData.ticketPrice.toString())
-      : 0n;
+      : BigInt(0);
 
     // Convert capacity to BigInt
     const capacity = BigInt(parseInt(formData.capacity));

@@ -58,7 +58,7 @@ export default function PlayableMap() {
     limit: 50,
     autoFetch: true,
     enabled: true
-  });
+  }) as { realms: Realm[]; isLoading: boolean; error: any; refetch: () => void };
 
   // Modal state for showing the VerifierModal
   const [selectedRealm, setSelectedRealm] = useState<Realm | null>(null);

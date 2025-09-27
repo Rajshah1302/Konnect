@@ -21,8 +21,7 @@ contract RealmFactory {
         address indexed creator,
         string title,
         uint256 ticketPrice,
-        uint256 capacity,
-        uint256 minimumAge
+        uint256 capacity
     );
     
     constructor(address _identityVerificationHubV2) {
@@ -42,49 +41,13 @@ contract RealmFactory {
         uint256 capacity,
         uint256 realmDate,
         bool requiresMaleOnly,
-        bool requiresFemaleOnly,
-        uint256 minimumAge
+        bool requiresFemaleOnly
     ) external returns (address realmAddress) {
         require(bytes(title).length > 0, "Title cannot be empty");
         require(capacity > 0, "Capacity must be > 0");
         require(realmDate > block.timestamp, "Realm date must be in future");
         require(!(requiresMaleOnly && requiresFemaleOnly), "Cannot be both male and female only");
         
-        realmAddress = _deployRealm(
-            title,
-            description,
-            latitude,
-            longitude,
-            ticketPrice,
-            capacity,
-            realmDate,
-            requiresMaleOnly,
-            requiresFemaleOnly,
-            minimumAge
-        );
-        
-        // Update storage
-        allRealms.push(realmAddress);
-        creatorRealms[msg.sender].push(realmAddress);
-        isValidRealm[realmAddress] = true;
-        
-        emit RealmCreated(realmAddress, msg.sender, title, ticketPrice, capacity, minimumAge);
-        
-        return realmAddress;
-    }
-    
-    function _deployRealm(
-        string memory title,
-        string memory description,
-        int256 latitude,
-        int256 longitude,
-        uint256 ticketPrice,
-        uint256 capacity,
-        uint256 realmDate,
-        bool requiresMaleOnly,
-        bool requiresFemaleOnly,
-        uint256 minimumAge
-    ) internal returns (address) {
         Realm.RealmParams memory realmParams = Realm.RealmParams({
             creator: msg.sender,
             title: title,
@@ -96,17 +59,26 @@ contract RealmFactory {
             realmDate: realmDate,
             verificationConfigId: VERIFICATION_CONFIG_ID,
             requiresMaleOnly: requiresMaleOnly,
-            requiresFemaleOnly: requiresFemaleOnly,
-            minimumAge: minimumAge
+            requiresFemaleOnly: requiresFemaleOnly
         });
+        
+        string memory scopeSeed = "konnect";
         
         Realm newRealm = new Realm(
             realmParams,
             identityVerificationHubV2,
-            "konnect"
+            scopeSeed
         );
         
-        return address(newRealm);
+        realmAddress = address(newRealm);
+        
+        allRealms.push(realmAddress);
+        creatorRealms[msg.sender].push(realmAddress);
+        isValidRealm[realmAddress] = true;
+        
+        emit RealmCreated(realmAddress, msg.sender, title, ticketPrice, capacity);
+        
+        return realmAddress;
     }
     
     function getCreatorRealms(address creator) external view returns (address[] memory) {
@@ -136,8 +108,7 @@ contract RealmFactory {
         uint256[] memory ticketPrices,
         uint256[] memory capacities,
         uint256[] memory realmDates,
-        uint256[] memory attendeeCounts,
-        uint256[] memory minimumAges
+        uint256[] memory attendeeCounts
     ) {
         uint256 length = realmAddresses.length;
         titles = new string[](length);
@@ -145,7 +116,6 @@ contract RealmFactory {
         capacities = new uint256[](length);
         realmDates = new uint256[](length);
         attendeeCounts = new uint256[](length);
-        minimumAges = new uint256[](length);
         
         for (uint256 i = 0; i < length; i++) {
             if (isValidRealm[realmAddresses[i]]) {
@@ -158,30 +128,6 @@ contract RealmFactory {
                     realmDates[i],
                     attendeeCounts[i]
                 ) = realmContract.getRealmDetails();
-                
-                (, , minimumAges[i]) = realmContract.getRealmRequirements();
-            }
-        }
-    }
-    
-    function getRealmsRequirements(address[] memory realmAddresses) external view returns (
-        bool[] memory requiresMaleOnly,
-        bool[] memory requiresFemaleOnly,
-        uint256[] memory minimumAges
-    ) {
-        uint256 length = realmAddresses.length;
-        requiresMaleOnly = new bool[](length);
-        requiresFemaleOnly = new bool[](length);
-        minimumAges = new uint256[](length);
-        
-        for (uint256 i = 0; i < length; i++) {
-            if (isValidRealm[realmAddresses[i]]) {
-                Realm realmContract = Realm(realmAddresses[i]);
-                (
-                    requiresMaleOnly[i],
-                    requiresFemaleOnly[i],
-                    minimumAges[i]
-                ) = realmContract.getRealmRequirements();
             }
         }
     }
