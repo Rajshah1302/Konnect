@@ -26,7 +26,7 @@ export const useCreateRealm = () => {
       throw new Error("Please connect your wallet first");
     }
 
-    // Prepare contract parameters according to the contract signature:
+    // Prepare contract parameters according to the updated contract signature:
     // createRealm(
     //   string memory title,
     //   string memory description,
@@ -36,7 +36,10 @@ export const useCreateRealm = () => {
     //   uint256 capacity,
     //   uint256 realmDate,
     //   bool requiresMaleOnly,
-    //   bool requiresFemaleOnly
+    //   bool requiresFemaleOnly,
+    //   uint256 minimumAge,
+    //   string[] memory allowedCountries,
+    //   string[] memory blockedCountries
     // )
 
     // Prepare date
@@ -69,6 +72,22 @@ export const useCreateRealm = () => {
     const requiresMaleOnly = formData.genderRequirement === "male";
     const requiresFemaleOnly = formData.genderRequirement === "female";
 
+    // Handle minimum age (default to 0 if not specified)
+    const minimumAge = formData.minimumAge ? BigInt(parseInt(formData.minimumAge)) : 0n;
+
+    // Handle country restrictions
+    const allowedCountries = formData.allowedCountries || [];
+    const blockedCountries = formData.blockedCountries || [];
+
+    // Validate country arrays
+    const processedAllowedCountries = Array.isArray(allowedCountries) 
+      ? allowedCountries.filter(country => country && country.trim() !== '')
+      : [];
+    
+    const processedBlockedCountries = Array.isArray(blockedCountries) 
+      ? blockedCountries.filter(country => country && country.trim() !== '')
+      : [];
+
     const args = [
       formData.title,
       formData.description,
@@ -79,6 +98,9 @@ export const useCreateRealm = () => {
       realmTimestamp,
       requiresMaleOnly,
       requiresFemaleOnly,
+      minimumAge,
+      processedAllowedCountries,
+      processedBlockedCountries,
     ];
 
     console.log("Creating realm with parameters:", {
@@ -91,6 +113,9 @@ export const useCreateRealm = () => {
       realmDate: realmTimestamp.toString(),
       requiresMaleOnly,
       requiresFemaleOnly,
+      minimumAge: minimumAge.toString(),
+      allowedCountries: processedAllowedCountries,
+      blockedCountries: processedBlockedCountries,
     });
 
     return writeContract({

@@ -12,6 +12,7 @@ const config: HardhatUserConfig = {
         enabled: true,
         runs: 200,
       },
+      viaIR: true, // Add this to help with stack too deep issues
     },
   },
   networks: {
@@ -20,6 +21,10 @@ const config: HardhatUserConfig = {
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
       chainId: 11142220,
       gasPrice: 200000000000,
+      timeout: 120000, // 2 minutes timeout
+      httpHeaders: {
+        "User-Agent": "hardhat",
+      },
     },
   },
   etherscan: {
@@ -40,6 +45,9 @@ const config: HardhatUserConfig = {
   gasReporter: {
     enabled: process.env.REPORT_GAS !== undefined,
     currency: "USD",
+  },
+  mocha: {
+    timeout: 120000, // 2 minutes for tests
   },
 };
 

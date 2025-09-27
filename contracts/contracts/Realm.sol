@@ -20,7 +20,9 @@ contract Realm is SelfVerificationRoot {
     bytes32 public verificationConfigId;
     bool public requiresMaleOnly;
     bool public requiresFemaleOnly;
-    uint256 public minimumAge; // Added minimum age field
+    uint256 public minimumAge; 
+    string[] public allowedCountries;    
+    string[] public blockedCountries;
 
     uint256 public attendeeCount = 0;
     mapping(address => bool) public verifiedUsers;
@@ -47,7 +49,9 @@ contract Realm is SelfVerificationRoot {
         bytes32 verificationConfigId;
         bool requiresMaleOnly;
         bool requiresFemaleOnly;
-        uint256 minimumAge; // Added to RealmParams struct
+        uint256 minimumAge; 
+        string[] allowedCountries;
+        string[] blockedCountries;
     }
 
     constructor(
@@ -71,7 +75,16 @@ contract Realm is SelfVerificationRoot {
         verificationConfigId = params.verificationConfigId;
         requiresMaleOnly = params.requiresMaleOnly;
         requiresFemaleOnly = params.requiresFemaleOnly;
-        minimumAge = params.minimumAge; 
+        minimumAge = params.minimumAge; // Initialize minimum age
+        
+        // Initialize country restrictions
+        for (uint i = 0; i < params.allowedCountries.length; i++) {
+            allowedCountries.push(params.allowedCountries[i]);
+        }
+        for (uint i = 0; i < params.blockedCountries.length; i++) {
+            blockedCountries.push(params.blockedCountries[i]);
+        }
+        
         attendees[params.creator] = true;
         attendeeList.push(params.creator);
         attendeeCount++;
@@ -104,10 +117,107 @@ contract Realm is SelfVerificationRoot {
         }
         if (minimumAge > 0) {
             require(
-                output.olderThan >= minimumAge,
+                _calculateAgeFromDOB(output.dateOfBirth) >= minimumAge,
                 "Does not meet minimum age requirement"
             );
         }
+        
+        // Validate country requirements
+        _validateCountryRequirements(output.nationality);
+    }
+
+    function _calculateAgeFromDOB(string memory dateOfBirth) internal view returns (uint256) {
+        require(bytes(dateOfBirth).length == 8, "Invalid DOB format");
+        
+        // DOB format: "DDMMYYYY" (8 characters)
+        string memory dayStr = _substring(dateOfBirth, 0, 2);      // DD
+        string memory monthStr = _substring(dateOfBirth, 2, 4);    // MM  
+        string memory yearStr = _substring(dateOfBirth, 4, 8);     // YYYY
+        
+        uint256 birthDay = _stringToUint(dayStr);
+        uint256 birthMonth = _stringToUint(monthStr);
+        uint256 birthYear = _stringToUint(yearStr);
+        
+        uint256 currentYear = _getCurrentYear();
+        uint256 currentMonth = _getCurrentMonth();
+        uint256 currentDay = _getCurrentDay();
+        
+        uint256 age = currentYear - birthYear;
+        
+        // Adjust if birthday hasn't occurred this year yet
+        if (currentMonth < birthMonth || 
+            (currentMonth == birthMonth && currentDay < birthDay)) {
+            age = age - 1;
+        }
+        
+        return age;
+    }
+
+    // Helper function to extract substring
+    function _substring(string memory str, uint256 start, uint256 end) internal pure returns (string memory) {
+        bytes memory strBytes = bytes(str);
+        require(end <= strBytes.length && start < end, "Invalid substring range");
+        
+        bytes memory result = new bytes(end - start);
+        for (uint256 i = start; i < end; i++) {
+            result[i - start] = strBytes[i];
+        }
+        return string(result);
+    }
+
+    // Helper function to convert string to uint
+    function _stringToUint(string memory str) internal pure returns (uint256) {
+        bytes memory b = bytes(str);
+        uint256 result = 0;
+        for (uint256 i = 0; i < b.length; i++) {
+            uint256 digit = uint256(uint8(b[i])) - 48; // ASCII '0' is 48
+            require(digit <= 9, "Invalid numeric character");
+            result = result * 10 + digit;
+        }
+        return result;
+    }
+
+    // Helper function to get current year
+    function _getCurrentYear() internal view returns (uint256) {
+        return 1970 + (block.timestamp / 31557600); // Approximate
+    }
+
+    // Helper function to get current month (1-12)
+    function _getCurrentMonth() internal view returns (uint256) {
+        uint256 secondsInYear = 31557600;
+        uint256 yearProgress = (block.timestamp % secondsInYear);
+        return (yearProgress / 2629800) + 1; // Approximate month
+    }
+
+    // Helper function to get current day (1-31)
+    function _getCurrentDay() internal view returns (uint256) {
+        uint256 secondsInMonth = 2629800;
+        uint256 monthProgress = (block.timestamp % secondsInMonth);
+        return (monthProgress / 86400) + 1; // Days in current month
+    }
+
+    function _validateCountryRequirements(string memory nationality) internal view {
+        // Check blocked countries first
+        for (uint i = 0; i < blockedCountries.length; i++) {
+            require(
+                keccak256(abi.encodePacked(nationality)) != keccak256(abi.encodePacked(blockedCountries[i])),
+                "Country not permitted"
+            );
+        }
+        
+        // If no allowed countries specified, accept all (except blocked)
+        if (allowedCountries.length == 0) {
+            return;
+        }
+        
+        // Check if nationality is in allowed list
+        for (uint i = 0; i < allowedCountries.length; i++) {
+            if (keccak256(abi.encodePacked(nationality)) == keccak256(abi.encodePacked(allowedCountries[i]))) {
+                return; // Found in allowed list
+            }
+        }
+        
+        revert("Country not in allowed list");
     }
 
     function joinRealm() external payable {
@@ -165,10 +275,12 @@ contract Realm is SelfVerificationRoot {
         returns (
             bool _requiresMaleOnly,
             bool _requiresFemaleOnly,
-            uint256 _minimumAge // Added minimum age to return values
+            uint256 _minimumAge, // Added minimum age to return values
+            string[] memory _allowedCountries,
+            string[] memory _blockedCountries
         )
     {
-        return (requiresMaleOnly, requiresFemaleOnly, minimumAge);
+        return (requiresMaleOnly, requiresFemaleOnly, minimumAge, allowedCountries, blockedCountries);
     }
 
     function getRealmLocation() external view returns (int256 _latitude, int256 _longitude) {
@@ -185,5 +297,13 @@ contract Realm is SelfVerificationRoot {
 
     function isUserAttending(address user) external view returns (bool) {
         return attendees[user];
+    }
+
+    function getAllowedCountries() external view returns (string[] memory) {
+        return allowedCountries;
+    }
+
+    function getBlockedCountries() external view returns (string[] memory) {
+        return blockedCountries;
     }
 }

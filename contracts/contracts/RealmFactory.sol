@@ -43,13 +43,54 @@ contract RealmFactory {
         uint256 realmDate,
         bool requiresMaleOnly,
         bool requiresFemaleOnly,
-        uint256 minimumAge
+        uint256 minimumAge,
+        string[] memory allowedCountries,
+        string[] memory blockedCountries
     ) external returns (address realmAddress) {
         require(bytes(title).length > 0, "Title cannot be empty");
         require(capacity > 0, "Capacity must be > 0");
         require(realmDate > block.timestamp, "Realm date must be in future");
         require(!(requiresMaleOnly && requiresFemaleOnly), "Cannot be both male and female only");
         
+        realmAddress = _deployRealm(
+            title,
+            description,
+            latitude,
+            longitude,
+            ticketPrice,
+            capacity,
+            realmDate,
+            requiresMaleOnly,
+            requiresFemaleOnly,
+            minimumAge,
+            allowedCountries,
+            blockedCountries
+        );
+        
+        // Update storage
+        allRealms.push(realmAddress);
+        creatorRealms[msg.sender].push(realmAddress);
+        isValidRealm[realmAddress] = true;
+        
+        emit RealmCreated(realmAddress, msg.sender, title, ticketPrice, capacity, minimumAge);
+        
+        return realmAddress;
+    }
+    
+    function _deployRealm(
+        string memory title,
+        string memory description,
+        int256 latitude,
+        int256 longitude,
+        uint256 ticketPrice,
+        uint256 capacity,
+        uint256 realmDate,
+        bool requiresMaleOnly,
+        bool requiresFemaleOnly,
+        uint256 minimumAge,
+        string[] memory allowedCountries,
+        string[] memory blockedCountries
+    ) internal returns (address) {
         Realm.RealmParams memory realmParams = Realm.RealmParams({
             creator: msg.sender,
             title: title,
@@ -62,26 +103,18 @@ contract RealmFactory {
             verificationConfigId: VERIFICATION_CONFIG_ID,
             requiresMaleOnly: requiresMaleOnly,
             requiresFemaleOnly: requiresFemaleOnly,
-            minimumAge: minimumAge
+            minimumAge: minimumAge,
+            allowedCountries: allowedCountries,
+            blockedCountries: blockedCountries
         });
-        
-        string memory scopeSeed = "konnect";
         
         Realm newRealm = new Realm(
             realmParams,
             identityVerificationHubV2,
-            scopeSeed
+            "konnect"
         );
         
-        realmAddress = address(newRealm);
-        
-        allRealms.push(realmAddress);
-        creatorRealms[msg.sender].push(realmAddress);
-        isValidRealm[realmAddress] = true;
-        
-        emit RealmCreated(realmAddress, msg.sender, title, ticketPrice, capacity, minimumAge);
-        
-        return realmAddress;
+        return address(newRealm);
     }
     
     function getCreatorRealms(address creator) external view returns (address[] memory) {
@@ -134,7 +167,7 @@ contract RealmFactory {
                     attendeeCounts[i]
                 ) = realmContract.getRealmDetails();
                 
-                (, , minimumAges[i]) = realmContract.getRealmRequirements();
+                (, , minimumAges[i], ,) = realmContract.getRealmRequirements();
             }
         }
     }
@@ -142,12 +175,16 @@ contract RealmFactory {
     function getRealmsRequirements(address[] memory realmAddresses) external view returns (
         bool[] memory requiresMaleOnly,
         bool[] memory requiresFemaleOnly,
-        uint256[] memory minimumAges
+        uint256[] memory minimumAges,
+        string[][] memory allowedCountries,
+        string[][] memory blockedCountries
     ) {
         uint256 length = realmAddresses.length;
         requiresMaleOnly = new bool[](length);
         requiresFemaleOnly = new bool[](length);
         minimumAges = new uint256[](length);
+        allowedCountries = new string[][](length);
+        blockedCountries = new string[][](length);
         
         for (uint256 i = 0; i < length; i++) {
             if (isValidRealm[realmAddresses[i]]) {
@@ -155,7 +192,9 @@ contract RealmFactory {
                 (
                     requiresMaleOnly[i],
                     requiresFemaleOnly[i],
-                    minimumAges[i]
+                    minimumAges[i],
+                    allowedCountries[i],
+                    blockedCountries[i]
                 ) = realmContract.getRealmRequirements();
             }
         }

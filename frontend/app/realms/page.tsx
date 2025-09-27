@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useMemo } from "react";
-import { Search, Loader2, RefreshCw } from "lucide-react";
+import { Search, Loader2, RefreshCw, Users, Calendar, Globe, Shield } from "lucide-react";
 import Marquee from "@/components/Realms/Marquee";
 import VerifierModal from "@/components/Realms/VerifierMondal";
 import Event from "@/components/Realms/Realm";
@@ -11,35 +11,90 @@ const EventList = () => {
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // Fetch realms using the hook
-  const { realms, isLoading, error, refetch, totalRealms } = useRealms();
+  // Fetch realms using the enhanced hook with requirements data
+  const { realms, isLoading, error, refetch, totalRealms } = useRealms({
+    includeRequirements: true // Get verification requirements
+  });
 
   // Transform realm data to match the expected event format
   const transformedEvents = useMemo(() => {
-    return realms.map((realm, index) => ({
-      id: index + 1,
-      creator: realm.address, // Using contract address as creator for now
-      title: realm.title,
-      description: `Experience this realm with ${Number(realm.attendeeCount)} other participants.`,
-      latitude: 0, // These would need to be fetched separately if needed
-      longitude: 0,
-      ticketPrice: Number(realm.ticketPrice) / 1e18, // Convert from wei to ETH
-      capacity: Number(realm.capacity),
-      verseDate: Number(realm.realmDate),
-      verificationConfigId: "0x" + realm.address.slice(2, 18), // Mock verification ID
-      isOnline: true, // Assuming all realms are online for now
-      requiresMaleOnly: false, // These would need separate contract calls to get
-      requiresFemaleOnly: false,
-      requiredNationality: "",
-      attendeeCount: Number(realm.attendeeCount),
-      category: realm.isOnline ? "Virtual" : "In-Person",
-      location: realm.isOnline ? "Virtual" : "TBD",
-      address: realm.address, // Keep the original address for reference
-    }));
+    return realms.map((realm, index) => {
+      const requirements = realm.requirements || {};
+      
+      // Format location based on coordinates
+      const hasLocation = realm.latitude && realm.longitude && 
+                          Number(realm.latitude) !== 0 && Number(realm.longitude) !== 0;
+      
+      // Determine gender requirement text
+      let genderRequirement = "All genders welcome";
+      if (requirements.requiresMaleOnly) {
+        genderRequirement = "Male only";
+      } else if (requirements.requiresFemaleOnly) {
+        genderRequirement = "Female only";
+      }
+
+      // Format country restrictions
+      let countryRestrictions = "Global";
+      if (requirements.allowedCountries?.length > 0) {
+        countryRestrictions = `${requirements.allowedCountries.join(", ")} only`;
+      } else if (requirements.blockedCountries?.length > 0) {
+        countryRestrictions = `Excluding ${requirements.blockedCountries.join(", ")}`;
+      }
+
+      // Create verification requirements summary
+      const verificationSummary = [];
+      if (Number(requirements.minimumAge || realm.minimumAge) > 0) {
+        verificationSummary.push(`${Number(requirements.minimumAge || realm.minimumAge)}+`);
+      }
+      if (requirements.requiresMaleOnly || requirements.requiresFemaleOnly) {
+        verificationSummary.push(genderRequirement);
+      }
+      if (requirements.allowedCountries?.length > 0 || requirements.blockedCountries?.length > 0) {
+        verificationSummary.push(countryRestrictions);
+      }
+
+      return {
+        id: index + 1,
+        creator: realm.address,
+        title: realm.title,
+        description: realm.description || `Experience this verified realm with ${Number(realm.attendeeCount)} other participants.`,
+        latitude: Number(realm.latitude) / 1000000, // Convert back from contract format
+        longitude: Number(realm.longitude) / 1000000,
+        ticketPrice: Number(realm.ticketPrice) / 1e18, // Convert from wei to ETH
+        capacity: Number(realm.capacity),
+        verseDate: Number(realm.realmDate),
+        verificationConfigId: "0x" + realm.address.slice(2, 18),
+        isOnline: !hasLocation,
+        requiresMaleOnly: requirements.requiresMaleOnly || false,
+        requiresFemaleOnly: requirements.requiresFemaleOnly || false,
+        minimumAge: Number(requirements.minimumAge || realm.minimumAge || 0),
+        allowedCountries: requirements.allowedCountries || [],
+        blockedCountries: requirements.blockedCountries || [],
+        requiredNationality: requirements.allowedCountries?.join(", ") || "",
+        attendeeCount: Number(realm.attendeeCount),
+        category: hasLocation ? "In-Person" : "Virtual",
+        location: hasLocation ? 
+          `${(Number(realm.latitude) / 1000000).toFixed(4)}, ${(Number(realm.longitude) / 1000000).toFixed(4)}` : 
+          "Virtual",
+        address: realm.address,
+        
+        // Enhanced fields for better display
+        genderRequirement,
+        countryRestrictions,
+        verificationSummary: verificationSummary.length > 0 ? verificationSummary.join(" • ") : "Open access",
+        hasVerificationRequirements: verificationSummary.length > 0,
+        
+        // Date formatting
+        formattedDate: new Date(Number(realm.realmDate) * 1000).toLocaleDateString(),
+        isUpcoming: Number(realm.realmDate) * 1000 > Date.now(),
+        daysTillEvent: Math.ceil((Number(realm.realmDate) * 1000 - Date.now()) / (1000 * 60 * 60 * 24)),
+      };
+    });
   }, [realms]);
 
   const featuredEvents = useMemo(() => {
     return transformedEvents
+      .filter(event => event.isUpcoming) // Only show upcoming events
       .sort((a, b) => b.attendeeCount - a.attendeeCount)
       .slice(0, 4);
   }, [transformedEvents]);
@@ -47,12 +102,29 @@ const EventList = () => {
   const filteredEvents = useMemo(() => {
     if (!searchQuery) return transformedEvents;
     
+    const query = searchQuery.toLowerCase();
     return transformedEvents.filter((event) =>
-      [event.title, event.description, event.category, event.location].some(
-        (field) => field.toLowerCase().includes(searchQuery.toLowerCase())
-      )
+      [
+        event.title,
+        event.description,
+        event.category,
+        event.location,
+        event.genderRequirement,
+        event.countryRestrictions,
+        event.verificationSummary
+      ].some((field) => field.toLowerCase().includes(query))
     );
   }, [transformedEvents, searchQuery]);
+
+  // Group events by verification requirements
+  const eventsByCategory = useMemo(() => {
+    const upcoming = filteredEvents.filter(e => e.isUpcoming);
+    const verified = upcoming.filter(e => e.hasVerificationRequirements);
+    const open = upcoming.filter(e => !e.hasVerificationRequirements);
+    const past = filteredEvents.filter(e => !e.isUpcoming);
+    
+    return { upcoming, verified, open, past };
+  }, [filteredEvents]);
 
   const handleEventClick = (event) => {
     setSelectedEvent(event);
@@ -77,7 +149,7 @@ const EventList = () => {
           <h3 className="text-xl text-gray-300 font-medium mb-2">
             Loading Realms
           </h3>
-          <p className="text-gray-500">Fetching realms from the blockchain...</p>
+          <p className="text-gray-500">Fetching verified realms from the blockchain...</p>
         </div>
       </div>
     );
@@ -126,14 +198,29 @@ const EventList = () => {
               <Loader2 size={24} className="text-blue-400 animate-spin" />
             )}
           </div>
-          <div className="flex items-center justify-center gap-4">
+          <div className="flex items-center justify-center gap-4 flex-wrap">
             <p className="text-gray-400 text-lg md:text-xl font-light max-w-2xl mx-auto leading-relaxed">
               Join verified metaverse and IRL experiences powered by Self Protocol
             </p>
             {totalRealms > 0 && (
-              <span className="text-blue-400 text-sm bg-blue-500/10 px-3 py-1 rounded-full">
-                {totalRealms} realm{totalRealms !== 1 ? 's' : ''} available
-              </span>
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-blue-400 bg-blue-500/10 px-3 py-1 rounded-full flex items-center gap-1">
+                  <Globe size={14} />
+                  {totalRealms} realm{totalRealms !== 1 ? 's' : ''}
+                </span>
+                {eventsByCategory.verified.length > 0 && (
+                  <span className="text-green-400 bg-green-500/10 px-3 py-1 rounded-full flex items-center gap-1">
+                    <Shield size={14} />
+                    {eventsByCategory.verified.length} verified
+                  </span>
+                )}
+                {eventsByCategory.upcoming.length > 0 && (
+                  <span className="text-purple-400 bg-purple-500/10 px-3 py-1 rounded-full flex items-center gap-1">
+                    <Calendar size={14} />
+                    {eventsByCategory.upcoming.length} upcoming
+                  </span>
+                )}
+              </div>
             )}
           </div>
         </div>
@@ -150,7 +237,7 @@ const EventList = () => {
             />
             <input
               type="text"
-              placeholder="Search realms, categories, or locations..."
+              placeholder="Search realms, requirements, locations..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl py-4 pl-12 pr-6 text-white placeholder-gray-400 focus:outline-none focus:border-blue-400/50 focus:bg-white/8 transition-all duration-300"
@@ -186,7 +273,7 @@ const EventList = () => {
             <h3 className="text-xl text-gray-300 font-medium mb-2">
               No realms available
             </h3>
-            <p className="text-gray-500">Be the first to create a realm!</p>
+            <p className="text-gray-500">Be the first to create a verified realm!</p>
           </div>
         ) : (
           <>
@@ -209,6 +296,9 @@ const EventList = () => {
                   No realms found
                 </h3>
                 <p className="text-gray-500">Try adjusting your search terms</p>
+                <p className="text-gray-400 text-sm mt-2">
+                  Search by title, verification requirements, age, gender, or country restrictions
+                </p>
               </div>
             )}
           </>

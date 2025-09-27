@@ -57,7 +57,9 @@ const VerifierModal: React.FC<VerifierModalProps> = ({
             minimumAge: 18,
             excludedCountries: [],
             ofac: false,
-            gender: true
+            gender: true,
+            date_of_birth: true,
+            nationality: true
           },
           userDefinedData,
         }).build();
