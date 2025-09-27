@@ -22,6 +22,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { useCreateRealm } from "@/hooks/useCreateRealm";
 import { useAccount } from "wagmi";
+
 const CreateRealmPage = () => {
   const {
     createRealm,
@@ -44,11 +45,8 @@ const CreateRealmPage = () => {
     ticketPrice: "",
     capacity: "",
     realmDate: "",
-    verificationConfigId:
-      "0x7b6436b0c98f62380866d9432c2af0ee08ce16a171bda6951aecd95ee1307d61",
     isOnline: false,
-    genderRequirement: "all",
-    requiredNationality: "",
+    genderRequirement: "all", // "all", "male", "female"
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitStatus, setSubmitStatus] = useState(null);
@@ -191,9 +189,6 @@ const CreateRealmPage = () => {
         if (!formData.latitude) newErrors.latitude = "Required";
         if (!formData.longitude) newErrors.longitude = "Required";
       }
-    } else if (step === 3) {
-      if (!formData.verificationConfigId.trim())
-        newErrors.verificationConfigId = "Required";
     }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -201,14 +196,14 @@ const CreateRealmPage = () => {
 
   const handleNext = () => {
     if (validateStep(currentStep)) {
-      setCurrentStep((prev) => Math.min(prev + 1, 3));
+      setCurrentStep((prev) => Math.min(prev + 1, 2)); // Changed from 3 to 2
     }
   };
 
   const handleBack = () => setCurrentStep((prev) => Math.max(prev - 1, 1));
 
   const handleSubmit = async () => {
-    if (!validateStep(3)) return;
+    if (!validateStep(2)) return;
 
     if (!isConnected) {
       setSubmitStatus({
@@ -285,11 +280,8 @@ const CreateRealmPage = () => {
         ticketPrice: "",
         capacity: "",
         realmDate: "",
-        verificationConfigId:
-          "0x7b6436b0c98f62380866d9432c2af0ee08ce16a171bda6951aecd95ee1307d61",
         isOnline: false,
         genderRequirement: "all",
-        requiredNationality: "",
       });
       setCurrentStep(1);
       setIsSubmitting(false);
@@ -313,7 +305,7 @@ const CreateRealmPage = () => {
 
   const StepIndicator = () => (
     <div className="flex items-center justify-center mb-12">
-      {[1, 2, 3].map((step) => (
+      {[1, 2].map((step) => (
         <React.Fragment key={step}>
           <div
             className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-medium transition-all duration-300 ${
@@ -324,7 +316,7 @@ const CreateRealmPage = () => {
           >
             {step}
           </div>
-          {step < 3 && (
+          {step < 2 && (
             <div
               className={`w-20 h-0.5 transition-all duration-300 ${
                 step < currentStep
@@ -366,11 +358,15 @@ const CreateRealmPage = () => {
                 className={`p-4 rounded-xl flex items-center gap-3 mb-8 border transition-all duration-300 ${
                   submitStatus.type === "success"
                     ? "bg-green-500/10 text-green-300 border-green-500/20"
+                    : submitStatus.type === "loading"
+                    ? "bg-blue-500/10 text-blue-300 border-blue-500/20"
                     : "bg-red-500/10 text-red-300 border-red-500/20"
                 }`}
               >
                 {submitStatus.type === "success" ? (
                   <CheckCircle size={20} />
+                ) : submitStatus.type === "loading" ? (
+                  <Loader2 size={20} className="animate-spin" />
                 ) : (
                   <AlertCircle size={20} />
                 )}
@@ -441,15 +437,15 @@ const CreateRealmPage = () => {
               </div>
             )}
 
-            {/* Step 2: Event Details */}
+            {/* Step 2: Event Details & Gender Requirements */}
             {currentStep === 2 && (
               <div className="space-y-8">
                 <div className="text-center mb-8">
                   <h3 className="text-2xl font-semibold text-white mb-2">
-                    Event Details
+                    Event Details & Requirements
                   </h3>
                   <p className="text-gray-400 text-sm">
-                    Configure your realm settings
+                    Configure your realm settings and access requirements
                   </p>
                 </div>
 
@@ -744,22 +740,9 @@ const CreateRealmPage = () => {
                     </div>
                   )}
                 </div>
-              </div>
-            )}
 
-            {/* Step 3: Verification */}
-            {currentStep === 3 && (
-              <div className="space-y-8">
-                <div className="text-center mb-8">
-                  <h3 className="text-2xl font-semibold text-white mb-2">
-                    Verification & Requirements
-                  </h3>
-                  <p className="text-gray-400 text-sm">
-                    Set access requirements for your realm
-                  </p>
-                </div>
-
-                <div className="space-y-6">
+                {/* Gender Requirements Section - Added to Step 2 */}
+                <div className="space-y-6 pt-6 border-t border-white/10">
                   <div>
                     <Label className="text-gray-300 font-medium mb-4 flex">
                       <Users className="h-4 w-4 text-neutral-400 mr-2" />
@@ -813,29 +796,6 @@ const CreateRealmPage = () => {
                       </div>
                     </RadioGroup>
                   </div>
-
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2">
-                      <Globe className="h-4 w-4 text-neutral-400" />
-                      <Label
-                        htmlFor="requiredNationality"
-                        className="text-sm font-medium text-gray-300"
-                      >
-                        Required Nationality
-                      </Label>
-                    </div>
-                    <Input
-                      type="text"
-                      id="requiredNationality"
-                      name="requiredNationality"
-                      value={formData.requiredNationality}
-                      onChange={(e) =>
-                        updateFormData({ requiredNationality: e.target.value })
-                      }
-                      placeholder="US, UK, CA (optional - leave empty for any nationality)"
-                      className="transition-all focus:ring-2 focus:ring-blue-500 bg-white/5 border-white/10 text-white placeholder-gray-400"
-                    />
-                  </div>
                 </div>
               </div>
             )}
@@ -852,7 +812,7 @@ const CreateRealmPage = () => {
                 Back
               </Button>
 
-              {currentStep < 3 ? (
+              {currentStep < 2 ? (
                 <Button
                   onClick={handleNext}
                   className="bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600 text-white shadow-lg shadow-blue-500/25"

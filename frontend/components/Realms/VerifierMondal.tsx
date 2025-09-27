@@ -5,13 +5,24 @@ import { SelfQRcodeWrapper, SelfAppBuilder } from "@selfxyz/qrcode";
 import { useAccount } from "wagmi";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 
-const VerifierModal = ({ isOpen, onClose, event, contractAddress }) => {
+type VerifierModalProps = {
+  isOpen: boolean;
+  onClose: () => void;
+  event: any;
+  contractAddress: string;
+};
+
+const VerifierModal: React.FC<VerifierModalProps> = ({
+  isOpen,
+  onClose,
+  event,
+  contractAddress,
+}) => {
   console.log("event : " + JSON.stringify(event));
   console.log("contract address : " + contractAddress);
   const [selfApp, setSelfApp] = useState(null);
   const [isVerificationComplete, setIsVerificationComplete] = useState(false);
   const { address, isConnected } = useAccount();
-  const address2 = "0x" + address;
   // Initialize Self App when wallet is connected
   useEffect(() => {
     if (!isOpen || !event || !isConnected || !address) {
@@ -25,26 +36,28 @@ const VerifierModal = ({ isOpen, onClose, event, contractAddress }) => {
           gender: event.requiresMaleOnly || event.requiresFemaleOnly,
         };
 
-        let userDefinedData = "Event verification";
-        // if (event.requiresMaleOnly)
-        //   userDefinedData = "Male verification required";
-        // else if (event.requiresFemaleOnly)
-        //   userDefinedData = "Female verification required";
-        // if (event.requiredNationality)
-        //   userDefinedData += ` - ${event.requiredNationality} nationals only`;
-        userDefinedData = "test";
-        const endpoint = "0xB84D3756AC6C758B210Aa2ff5a5f863B1D8FB50a";
+        let userDefinedData = event.requiresMaleOnly
+          ? "Male only"
+          : event.requiresFemaleOnly
+          ? "Female only"
+          : "Verification";
+
+        if (event.requiredNationality) {
+          userDefinedData += ` - ${event.requiredNationality} only`;
+        }
+        const endpoint = contractAddress;
         const app = new SelfAppBuilder({
-          endpoint: endpoint.toLowerCase(), // Use provided contract address or default
+          endpoint: endpoint.toLowerCase(), 
           endpointType: "staging_celo",
           userIdType: "hex",
           appName: event.title,
           scope: "konnect",
-          userId: "0x0000000000000000000000000000000000000000",
+          userId: address,
           disclosures: {
             minimumAge: 18,
             excludedCountries: [],
             ofac: false,
+            gender: true
           },
           userDefinedData,
         }).build();

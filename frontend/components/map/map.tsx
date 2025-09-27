@@ -56,20 +56,47 @@ export default function MapComponent({
         .setLngLat([currentUser.longitude, currentUser.latitude])
         .addTo(mapRef.current!);
 
-      // Create token markers with NexusLogo
+      // Create token markers with NexusLogo and titles
       tokens.forEach((token) => {
+        // Create container for marker and title
+        const markerContainer = document.createElement("div");
+        markerContainer.style.display = "flex";
+        markerContainer.style.flexDirection = "column";
+        markerContainer.style.alignItems = "center";
+        markerContainer.style.cursor = "pointer";
+
+        // Create title element
+        const titleElement = document.createElement("div");
+        titleElement.textContent = token.name;
+        titleElement.style.backgroundColor = "rgba(0, 0, 0, 0.8)";
+        titleElement.style.color = "white";
+        titleElement.style.padding = "4px 8px";
+        titleElement.style.borderRadius = "4px";
+        titleElement.style.fontSize = "12px";
+        titleElement.style.fontWeight = "bold";
+        titleElement.style.textAlign = "center";
+        titleElement.style.whiteSpace = "nowrap";
+        titleElement.style.marginBottom = "4px";
+        titleElement.style.boxShadow = "0 2px 4px rgba(0,0,0,0.3)";
+        titleElement.style.border = "1px solid rgba(255,255,255,0.2)";
+
+        // Create the actual token marker
         const tokenElement = createTokenMarker({
           ...token,
           logoUrl: "/assets/nexuslogo.png", // Replace with NexusLogo
         });
 
+        // Append title and marker to container
+        markerContainer.appendChild(titleElement);
+        markerContainer.appendChild(tokenElement);
+
         if (onTokenClick) {
-          tokenElement.addEventListener("click", () => onTokenClick(token));
+          markerContainer.addEventListener("click", () => onTokenClick(token));
         }
 
         const marker = new mapboxgl.Marker({
-          element: tokenElement,
-          anchor: "center",
+          element: markerContainer,
+          anchor: "bottom",
         })
           .setLngLat([token.longitude, token.latitude])
           .addTo(mapRef.current!);
