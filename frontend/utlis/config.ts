@@ -1,5 +1,11 @@
 import {
   scrollSepolia,
+  scroll, // Add Scroll mainnet
+  mainnet, // Add Ethereum mainnet
+  polygon, // Add Polygon mainnet
+  arbitrum, // Add Arbitrum mainnet
+  optimism, // Add Optimism mainnet
+  base, // Add Base mainnet
 } from 'wagmi/chains'
 import {
   getDefaultConfig,
@@ -43,7 +49,7 @@ const celoSepolia = {
   testnet: true,
 } as const
 
-// Optional: Celo Alfajores (more established testnet)
+// Celo Alfajores (more established testnet)
 const celoAlfajores = {
   id: 44787,
   name: 'Celo Alfajores Testnet',
@@ -73,13 +79,13 @@ const celoAlfajores = {
   contracts: {
     multicall3: {
       address: '0xcA11bde05977b3631167028862bE2a173976CA11',
-      blockCreated: 1000000,
+      blockCreated: 14569001,
     },
   },
   testnet: true,
 } as const
 
-// Optional: Celo Mainnet
+// Celo Mainnet
 const celo = {
   id: 42220,
   name: 'Celo',
@@ -105,7 +111,7 @@ const celo = {
   contracts: {
     multicall3: {
       address: '0xcA11bde05977b3631167028862bE2a173976CA11',
-      blockCreated: 42220,
+      blockCreated: 13112599, // Approximate block when Multicall3 was deployed
     },
   },
   testnet: false,
@@ -115,10 +121,47 @@ export const config = getDefaultConfig({
   appName: 'HackNexus',
   projectId: process.env.NEXT_PUBLIC_PROJECT_ID ?? '',
   chains: [
-    scrollSepolia,
-    celoSepolia,     // Use Celo Sepolia (new testnet) - Chain ID: 11142220
-    // celoAlfajores, // Uncomment if you want to also support Alfajores
-    // celo,          // Uncomment if you want to add Celo Mainnet
+    // Mainnets
+    mainnet,          // Ethereum Mainnet - Chain ID: 1
+    polygon,          // Polygon Mainnet - Chain ID: 137
+    arbitrum,         // Arbitrum One - Chain ID: 42161
+    optimism,         // Optimism Mainnet - Chain ID: 10
+    base,             // Base Mainnet - Chain ID: 8453
+    scroll,           // Scroll Mainnet - Chain ID: 534352
+    celo,             // Celo Mainnet - Chain ID: 42220
+    
+    // Testnets
+    scrollSepolia,    // Scroll Sepolia Testnet - Chain ID: 534351
+    celoSepolia,      // Celo Sepolia Testnet - Chain ID: 11142220
+    // celoAlfajores,    // Uncomment if you want to also support Alfajores - Chain ID: 44787
+  ],
+  ssr: true,
+})
+
+// Alternative minimal configuration (testnets only)
+export const testnetConfig = getDefaultConfig({
+  appName: 'HackNexus',
+  projectId: process.env.NEXT_PUBLIC_PROJECT_ID ?? '',
+  chains: [
+    scrollSepolia,     // Scroll Sepolia Testnet
+    celoSepolia,       // Celo Sepolia Testnet
+    celoAlfajores,     // Celo Alfajores Testnet
+  ],
+  ssr: true,
+})
+
+// Production configuration (mainnets only)
+export const productionConfig = getDefaultConfig({
+  appName: 'HackNexus',
+  projectId: process.env.NEXT_PUBLIC_PROJECT_ID ?? '',
+  chains: [
+    mainnet,           // Ethereum Mainnet
+    polygon,           // Polygon Mainnet  
+    arbitrum,          // Arbitrum One
+    optimism,          // Optimism Mainnet
+    base,              // Base Mainnet
+    scroll,            // Scroll Mainnet
+    celo,              // Celo Mainnet
   ],
   ssr: true,
 })

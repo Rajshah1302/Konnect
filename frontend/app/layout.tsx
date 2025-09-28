@@ -18,7 +18,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Colosseum",
+  title: "ETH Connect",
   description: "on chain metaverse",
 };
 

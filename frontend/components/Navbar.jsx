@@ -9,7 +9,7 @@ export function Navbar() {
       <nav className="sticky top-0 z-50 flex items-center justify-between px-6 py-4 bg-black shadow-lg border-b-2 border-solid border-white animate-slide-down">
         <div className="text-2xl font-bold text-white">
           <a href="/" className="hover:text-purple-400 transition-colors duration-200">
-            COLOSSEUM
+            ETH Connect
           </a>
         </div>
         <ConnectButton />
