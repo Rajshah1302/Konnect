@@ -1,6 +1,6 @@
 # ETH Connect
 
-**Inclusive Metaverse Hackathon Platform on Celo**
+**Inclusive Metaverse Hackathon Platform**
 
 ETH Connect is an **accessibility-first hackathon platform** built to empower specially-abled people and introverts by enabling **on-chain self-verification** and **seamless event participation**. The platform extends into a **2D metaverse space** where participants can interact, collaborate, and join hackathons without barriers.
 
