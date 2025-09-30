@@ -1,7 +1,3 @@
-Got it ✅ — I’ll draft a professional, **ETHGlobal/DevPost-style README** for your project **ETH Connect**.
-
----
-
 # ETH Connect
 
 **Inclusive Metaverse Hackathon Platform on Celo**
@@ -110,6 +106,3 @@ MIT License.
 
 ⚡ With **ETH Connect**, hackathons become **inclusive, verifiable, and borderless**.
 
----
-
-👉 Do you want me to also create a **clean `README.md` file with Markdown formatting + badges (like build status, license, etc.)** so it looks GitHub-polished?
