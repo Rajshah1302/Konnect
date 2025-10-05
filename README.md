@@ -279,7 +279,29 @@ Breaks down Level 0 into more detailed flows, showing processes such as verifica
 
 ---
 
-## 7. Deployment Table
+## 7. Screenshots
+
+### MetaVerse
+
+<img width="627" height="365" alt="MetaVerse Interface" src="https://github.com/user-attachments/assets/a10dac16-cf2e-4c05-ac8b-cb70c2a071df" />
+*Interactive 2D metaverse for participants.*
+
+### 3D Map
+Explore nearby events in a spatial map.
+<img width="1920" height="1080" alt="3D Map" src="https://github.com/user-attachments/assets/4a2338a7-758e-45e7-8d3a-30f0f474c6a8" />
+
+### Landing Page
+Main landing page for exploring events.
+<img width="1920" height="1080" alt="Landing Page" src="https://github.com/user-attachments/assets/8285217c-e80a-4554-9a20-c3ce8edbbb79" />
+
+### Verification Modal
+Event-specific Self verification interface.
+<img width="1090" height="773" alt="Verification Modal" src="https://github.com/user-attachments/assets/119ab5a2-9478-4c6f-aca9-1cb8ac6e072f" />
+
+
+---
+
+## 8. Deployment Table
 
 | Component       | Environment / Platform | Description                                                                                        | Address / Link                                                                                                             |
 | --------------- | ---------------------- | -------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- |
@@ -290,7 +312,7 @@ Breaks down Level 0 into more detailed flows, showing processes such as verifica
 
 ---
 
-## Future Enhancements
+## 9. Future Enhancements
 
 ETH Connect aims to evolve into a more comprehensive and intelligent hackathon ecosystem, targeting multiple stakeholders and improving user engagement and compliance tracking.
 
